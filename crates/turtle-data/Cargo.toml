@@ -1,0 +1,15 @@
+[package]
+name = "turtle-data"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+directories = "6.0.0"
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+turtle-core = { path = "../turtle-core" }
+ulid = "1.2.1"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+# TODO(MVP, M1): rusqlite { features = ["bundled"] }, ulid, serde_json. Ver arquitectura §3.

@@ -1,0 +1,9 @@
+[package]
+name = "turtle-embed"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+turtle-core = { path = "../turtle-core" }
+# TODO(F2, S1): cliente HTTP a Ollama (reqwest). Opcional y diferido. Ver arquitectura §6.

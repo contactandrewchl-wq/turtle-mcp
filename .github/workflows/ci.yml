@@ -1,0 +1,60 @@
+name: CI
+
+# CI liviana: un solo job en Linux (sin macOS ni Windows, sin matrix). El build de release
+# (cargo build --release / binarios por plataforma) vive en `release.yml`, gateado a tags `v*`.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela corridas anteriores del mismo ref para no acumular minutos.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Guardia: avisa y BLOQUEA si se versionó algo que nunca debe ir a GitHub
+      # (builds de plataforma iOS/Expo/Android, dependencias, secretos). Corre en Linux.
+      - name: Guardia de artefactos prohibidos
+        shell: bash
+        run: |
+          set -euo pipefail
+          prohibido='(^|/)(node_modules|Pods|DerivedData|web-build|\.expo|\.expo-shared)/|\.(ipa|apk|aab|xcarchive|env|pem|key|p12|pfx|keystore|jks|mobileprovision|p8)$|(^|/)id_rsa'
+          ofensores="$(git ls-files | grep -E "$prohibido" || true)"
+          if [ -n "$ofensores" ]; then
+            echo "::error::Hay archivos versionados que no deben subirse a GitHub (builds de plataforma / secretos / dependencias):"
+            while IFS= read -r f; do echo "::error file=$f::no debe versionarse: $f"; done <<< "$ofensores"
+            echo "Agregalos a .gitignore y quitalos del índice:  git rm --cached <archivo>"
+            exit 1
+          fi
+          # Aviso (no bloquea) por archivos grandes (> 5 MB).
+          git ls-files -z | while IFS= read -r -d '' f; do
+            sz=$(wc -c < "$f" 2>/dev/null || echo 0)
+            if [ "$sz" -gt 5242880 ]; then
+              echo "::warning file=$f::archivo grande versionado: $f ($sz bytes)"
+            fi
+          done
+          echo "Guardia OK: sin artefactos prohibidos."
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Formato (rustfmt)
+        run: cargo fmt --all -- --check
+
+      - name: Lint (clippy)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Pruebas
+        run: cargo test --all-features

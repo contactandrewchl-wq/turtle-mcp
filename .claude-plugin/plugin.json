@@ -1,0 +1,28 @@
+{
+  "name": "turtle",
+  "version": "0.1.0",
+  "description": "Memoria persistente y coordinación multi-agente para agentes de IA, eficiente en tokens.",
+  "mcpServers": {
+    "turtle": {
+      "command": "turtle",
+      "args": ["mcp"]
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "turtle hook session-start" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "turtle hook prompt-submit" }
+        ]
+      }
+    ]
+  },
+  "skills": ["skills/turtle-protocol"]
+}

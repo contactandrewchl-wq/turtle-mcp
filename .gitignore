@@ -1,0 +1,93 @@
+# .gitignore con defaults: nunca subir a GitHub builds de plataforma, dependencias, secretos
+# ni basura del SO. Una guardia en CI (Linux) avisa y bloquea si algo de esto se cuela.
+
+# --- Rust ---
+/target
+**/*.rs.bk
+
+# --- Base de datos local de Turtle (la fuente de verdad es del usuario, no del repo) ---
+*.db
+*.db-wal
+*.db-shm
+
+# --- Secretos / credenciales (NUNCA al repo) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.mobileprovision
+*.p8
+id_rsa*
+*.crt
+secrets.*
+credentials.*
+
+# --- Dependencias / paquetes ---
+node_modules/
+.pnp.*
+.yarn/
+vendor/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- JS / TS / Expo / React Native / web ---
+.expo/
+.expo-shared/
+web-build/
+dist/
+build/
+.next/
+.cache/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- iOS (Expo prebuild, Xcode) ---
+ios/Pods/
+ios/build/
+DerivedData/
+*.ipa
+*.xcarchive
+*.dSYM.zip
+*.dSYM
+
+# --- Android ---
+android/.gradle/
+android/app/build/
+android/local.properties
+*.apk
+*.aab
+
+# --- Artefactos / binarios pesados que no deben versionarse ---
+*.zip
+*.tar.gz
+*.tgz
+*.7z
+*.exe
+*.dll
+*.so
+*.dylib
+
+# --- SO / editores ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Temporales de trabajo del repo ---
+.pr_body_*.md
+.commit_msg.txt
+*.log
+tmp/

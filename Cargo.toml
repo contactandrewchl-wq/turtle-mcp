@@ -1,0 +1,17 @@
+# Workspace virtual de Turtle.
+[workspace]
+resolver = "2"
+members = [
+    "crates/turtle-core",
+    "crates/turtle-data",
+    "crates/turtle-embed",
+    "crates/turtle-usage",
+    "crates/turtle-service",
+    "crates/turtle-mcp",
+    "crates/turtle-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.79"

@@ -1,0 +1,16 @@
+[package]
+name = "turtle-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+turtle-core = { path = "../turtle-core" }
+turtle-service = { path = "../turtle-service" }
+rmcp = { version = "1.7", features = ["server", "transport-io", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
+serde = { version = "1", features = ["derive"] }
+schemars = "1"
+
+[dev-dependencies]
+turtle-data = { path = "../turtle-data" }

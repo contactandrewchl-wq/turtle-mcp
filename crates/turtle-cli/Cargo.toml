@@ -1,0 +1,20 @@
+[package]
+name = "turtle-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "turtle"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+directories = "6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+turtle-core = { path = "../turtle-core" }
+turtle-data = { path = "../turtle-data" }
+turtle-service = { path = "../turtle-service" }
+turtle-mcp = { path = "../turtle-mcp" }
+turtle-usage = { path = "../turtle-usage" }

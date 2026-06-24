@@ -1,0 +1,11 @@
+[package]
+name = "turtle-service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+include_dir = "0.7"
+turtle-core = { path = "../turtle-core" }
+turtle-data = { path = "../turtle-data" }
+turtle-embed = { path = "../turtle-embed" }

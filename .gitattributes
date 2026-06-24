@@ -1,0 +1,3 @@
+# Los scripts de shell deben conservar finales de línea LF: se ejecutan vía `curl … | sh`
+# y los CR (\r) romperían el intérprete. Ver install.sh.
+*.sh text eol=lf
