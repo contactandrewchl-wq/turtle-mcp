@@ -87,14 +87,18 @@ Verificá: en una terminal nueva, `turtle --version`.
 ## Puesta en marcha paso a paso
 
 1. **Instalá** (arriba) y comprobá: `turtle --version`.
-2. **Registralo en tu CLI** (escribe la config del cliente por vos):
+2. **Instalá en tu CLI todo de una** (registra el MCP, inyecta el protocolo, instala las personas
+   y **siembra el bundle embebido —21 skills + 9 personas— en la base**):
 
    ```sh
-   turtle setup            # menú: detecta los clientes instalados y elegís
-   turtle setup claude-code   # o directo por nombre
+   turtle install            # menú: detecta los clientes instalados y elegís
+   turtle install claude-code   # o directo por nombre
    ```
 
    Soporta `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `gemini-cli` y `codex`.
+
+   > `turtle install` = sembrar el bundle **+** `turtle setup`. Si usaste solo `turtle setup` (que
+   > **no** siembra) y `turtle stats` muestra **0 skills**, corré `turtle skills seed`.
 3. **Reiniciá tu CLI** para que levante el servidor MCP.
 4. **Probá la memoria**:
 
@@ -108,7 +112,8 @@ Verificá: en una terminal nueva, `turtle --version`.
 
 ## Registrar en tu cliente y revisar los settings
 
-`turtle setup <cliente>` hace tres cosas, todas **idempotentes** (fusiona, no pisa lo ajeno):
+`turtle install <cliente>` siembra el bundle de skills/personas y luego corre `turtle setup`.
+`turtle setup <cliente>` (sin sembrar) hace tres cosas, todas **idempotentes** (fusiona, no pisa lo ajeno):
 
 - Escribe la entrada del servidor MCP en la config del cliente, con la **ruta absoluta** del binario. Equivale a:
 
