@@ -385,6 +385,30 @@ impl Db {
         Ok((con, total))
     }
 
+    /// Filas de índice (id, título, resumen, …) para un conjunto de ids, **sin** tocar `accessed_at`.
+    /// La usa la fusión FTS + semántica (RRF) para traer las filas que solo aporta la semántica.
+    /// Score 0 (no es ranking FTS); el orden final lo decide quien llama.
+    pub fn index_rows_for_ids(&self, ids: &[String]) -> rusqlite::Result<Vec<MemoryIndexRow>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders = std::iter::repeat("?")
+            .take(ids.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT m.id, m.title, m.type, m.summary, 0.0 AS score,
+                    (m.review_state = 'needs_review') AS needs_review
+             FROM memories m WHERE m.id IN ({placeholders})"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(
+            rusqlite::params_from_iter(ids.iter()),
+            map_index_full_row(false),
+        )?;
+        rows.collect()
+    }
+
     /// Recupera el contenido completo de una memoria por id (segunda etapa, RF-REC-02).
     /// Actualiza la marca de último acceso (RF-MEM-03).
     pub fn get_memory(&self, id: &str) -> rusqlite::Result<Option<Memory>> {

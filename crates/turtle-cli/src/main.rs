@@ -255,6 +255,12 @@ enum Comando {
         #[command(subcommand)]
         accion: Option<AccionModelos>,
     },
+    /// Búsqueda semántica opt-in vía Ollama (local): `on` la prende (baja el modelo y rellena los
+    /// embeddings), `off` vuelve a FTS, `status` muestra el estado. Por defecto Turtle usa FTS.
+    Semantic {
+        #[command(subcommand)]
+        accion: AccionSemantic,
+    },
     /// Adaptador de hooks de Claude Code: inyecta contexto de Turtle (uso interno del plugin).
     /// El feed de actividad (`hook activity`, por cada tool-call) se puede apagar con
     /// `$TURTLE_NO_ACTIVITY` (cualquier valor no vacío): así el hook no abre siquiera la base.
@@ -478,6 +484,79 @@ enum AccionRevisar {
     },
 }
 
+/// Orquesta `turtle semantic on/off/status` con feedback amigable. Degrada elegante: si Ollama no
+/// está, lo explica y deja todo en FTS sin romper.
+fn semantic_cmd(
+    servicio: &turtle_service::MemoryService,
+    accion: AccionSemantic,
+) -> Result<(), String> {
+    match accion {
+        AccionSemantic::Status => {
+            let (activa, modelo, disponible, con, total) =
+                servicio.semantic_status().map_err(|e| e.to_string())?;
+            println!("Semántica: {}", if activa { "ON" } else { "OFF (FTS)" });
+            println!("  Modelo:             {modelo}");
+            println!(
+                "  Ollama responde:    {}",
+                if disponible { "sí" } else { "no" }
+            );
+            println!("  Memorias embebidas: {con}/{total}");
+            if activa && !disponible {
+                println!(
+                    "  ⚠ Prendida, pero Ollama no responde → la búsqueda degrada a FTS hasta que vuelva."
+                );
+            }
+        }
+        AccionSemantic::Off => {
+            servicio.semantic_disable().map_err(|e| e.to_string())?;
+            println!(
+                "Semántica OFF: la búsqueda vuelve a FTS. Los embeddings ya calculados quedan guardados."
+            );
+        }
+        AccionSemantic::On { modelo } => {
+            let (_, _, disponible, _, _) = servicio.semantic_status().map_err(|e| e.to_string())?;
+            if !disponible {
+                let host = std::env::var("OLLAMA_HOST")
+                    .unwrap_or_else(|_| "http://localhost:11434".into());
+                println!("Ollama no responde en {host}. Para usar semántica:");
+                println!("  1) Instalá Ollama:  https://ollama.com/download");
+                println!("  2) Dejalo corriendo (suele quedar como servicio).");
+                println!("  3) Reintentá:       turtle semantic on");
+                println!("Mientras tanto, Turtle sigue funcionando con FTS (rápido y local).");
+                return Ok(());
+            }
+            if !servicio.semantic_model_present(&modelo) {
+                println!(
+                    "Descargando el modelo de embeddings «{modelo}» (una vez; puede tardar)..."
+                );
+                servicio.semantic_pull(&modelo)?;
+            }
+            servicio.semantic_enable(&modelo)?;
+            println!("Generando embeddings de tus memorias (puede tardar la primera vez)...");
+            let (mut ok, mut err) = (0usize, 0usize);
+            loop {
+                let (o, e) = servicio.semantic_backfill(64).map_err(|x| x.to_string())?;
+                ok += o;
+                err += e;
+                // Corta cuando no hay progreso (nada pendiente, o lo que queda falla siempre).
+                if o == 0 {
+                    break;
+                }
+            }
+            let cola = if err > 0 {
+                format!(", {err} fallaron (reintentá luego con la base ya prendida)")
+            } else {
+                String::new()
+            };
+            println!("✓ Semántica ON (modelo «{modelo}»). Embebidas {ok} memorias{cola}.");
+            println!(
+                "  La búsqueda ahora combina FTS + similitud semántica (RRF). Apagá con: turtle semantic off"
+            );
+        }
+    }
+    Ok(())
+}
+
 #[derive(Subcommand)]
 enum AccionModelos {
     /// Abre el menú interactivo para elegir persona y modelo (igual que `turtle modelos` a secas).
@@ -498,6 +577,20 @@ enum AccionModelos {
     },
     /// Reescribe los subagentes de Claude Code aplicando los overrides actuales.
     Aplicar,
+}
+
+#[derive(Subcommand)]
+enum AccionSemantic {
+    /// Prende la semántica: verifica Ollama, baja el modelo si falta y rellena los embeddings.
+    On {
+        /// Modelo de embeddings de Ollama.
+        #[arg(long, default_value = "nomic-embed-text")]
+        modelo: String,
+    },
+    /// Apaga la semántica (vuelve a FTS). No borra los embeddings ya calculados.
+    Off,
+    /// Estado: prendida/apagada, modelo, si Ollama responde y cuántas memorias embebidas.
+    Status,
 }
 
 #[derive(Subcommand)]
@@ -735,6 +828,7 @@ fn despachar(comando: Comando, servicio: MemoryService) -> Result<(), String> {
                 }
             }
         }
+        Comando::Semantic { accion } => semantic_cmd(&servicio, accion)?,
         Comando::Consolidar { de, a } => {
             let n = servicio
                 .consolidate_projects(&de, &a)

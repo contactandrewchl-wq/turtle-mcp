@@ -43,6 +43,13 @@ const MAX_CANDIDATOS_DUP: u32 = 5;
 /// presupuesto de tokens.
 const MAX_CANDIDATES: u32 = 200;
 
+/// Clave de `settings`: semántica opt-in prendida (`"1"`) o no.
+const SEMANTIC_KEY: &str = "semantic_enabled";
+/// Clave de `settings`: modelo de embeddings elegido.
+const EMBED_MODEL_KEY: &str = "embed_model";
+/// Constante de la fusión Reciprocal Rank Fusion (RRF). 60 es el valor clásico de la literatura.
+const RRF_K: f64 = 60.0;
+
 /// Detecta el proyecto a partir de `cwd`: nombre de la raíz del repo git si la hay; si no, el
 /// nombre de la carpeta; `default` como último recurso. Es la convención compartida por CLI, MCP
 /// y hooks, para que todos resuelvan el mismo proyecto desde un mismo directorio.
@@ -203,6 +210,11 @@ impl MemoryService {
             Some(&id),
             Some(&m.title),
         )?;
+        // Semántica opt-in: si está prendida, embebe la memoria (best-effort; nunca falla el guardado
+        // ni lo bloquea más allá del timeout corto de Ollama; si Ollama no está, queda para el backfill).
+        if self.semantica_activa() {
+            self.embed_memoria(&id, &m.title, &m.content);
+        }
         Ok(id)
     }
 
@@ -659,6 +671,9 @@ impl MemoryService {
             return Ok(apply_budget(Vec::new(), token_budget));
         }
         let candidates = match verbosidad {
+            Verbosidad::Indice if self.semantica_activa() => {
+                self.buscar_hibrido_indice(&q, query, project)?
+            }
             Verbosidad::Indice => self.db.search_index(&q, project, MAX_CANDIDATES)?,
             Verbosidad::Compacto => {
                 let mut rows = self.db.search_index_full(&q, project, MAX_CANDIDATES)?;
@@ -670,6 +685,153 @@ impl MemoryService {
             Verbosidad::Completo => self.db.search_index_full(&q, project, MAX_CANDIDATES)?,
         };
         Ok(apply_budget(candidates, token_budget))
+    }
+
+    // ─── Semántica opt-in (vía Ollama). Default: apagada → todo sigue en FTS. ───
+
+    /// `true` si la semántica está prendida (`turtle semantic on`).
+    pub fn semantica_activa(&self) -> bool {
+        matches!(self.db.setting_get(SEMANTIC_KEY), Ok(Some(v)) if v == "1")
+    }
+
+    /// Modelo de embeddings configurado, o el por defecto.
+    fn modelo_embed(&self) -> String {
+        self.db
+            .setting_get(EMBED_MODEL_KEY)
+            .ok()
+            .flatten()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| turtle_embed::MODELO_POR_DEFECTO.to_string())
+    }
+
+    /// Embebe una memoria (best-effort): si Ollama responde, guarda el vector; si no, lo deja para
+    /// el backfill. Nunca falla ni propaga error (degrada en silencio).
+    fn embed_memoria(&self, id: &str, title: &str, content: &str) {
+        let host = turtle_embed::ollama_host();
+        let modelo = self.modelo_embed();
+        let texto = format!("{title} {content}");
+        if let Ok(v) = turtle_embed::embed(&host, &modelo, &texto) {
+            let _ = self.db.upsert_embedding(id, &modelo, &v);
+        }
+    }
+
+    /// Búsqueda híbrida en modo índice: fusiona FTS + similitud semántica por **RRF**. Si Ollama no
+    /// responde o el embedding de la consulta falla, **degrada a FTS puro** (nunca rompe).
+    fn buscar_hibrido_indice(
+        &self,
+        q_sanitizada: &str,
+        query_original: &str,
+        project: Option<&str>,
+    ) -> rusqlite::Result<Vec<MemoryIndexRow>> {
+        let fts = self
+            .db
+            .search_index(q_sanitizada, project, MAX_CANDIDATES)?;
+        let host = turtle_embed::ollama_host();
+        if !turtle_embed::disponible(&host) {
+            return Ok(fts);
+        }
+        let qvec = match turtle_embed::embed(&host, &self.modelo_embed(), query_original) {
+            Ok(v) => v,
+            Err(_) => return Ok(fts),
+        };
+        // Ranking semántico: coseno contra los embeddings del alcance, top MAX_CANDIDATES.
+        let mut sem: Vec<(String, f32)> = self
+            .db
+            .embeddings_for_scope(project)?
+            .into_iter()
+            .map(|(id, v)| (id, turtle_embed::coseno(&qvec, &v)))
+            .collect();
+        sem.sort_by(|a, b| b.1.total_cmp(&a.1));
+        sem.truncate(MAX_CANDIDATES as usize);
+        if sem.is_empty() {
+            return Ok(fts);
+        }
+        // RRF: score(id) = Σ 1/(K + rank) sobre ambas listas; más alto = mejor.
+        let mut score: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+        for (i, r) in fts.iter().enumerate() {
+            *score.entry(r.id.clone()).or_default() += 1.0 / (RRF_K + i as f64);
+        }
+        for (i, (id, _)) in sem.iter().enumerate() {
+            *score.entry(id.clone()).or_default() += 1.0 / (RRF_K + i as f64);
+        }
+        let mut ids: Vec<String> = score.keys().cloned().collect();
+        ids.sort_by(|a, b| score[b].total_cmp(&score[a]));
+        ids.truncate(MAX_CANDIDATES as usize);
+        // Filas finales: reusar las de FTS; traer (sin tocar accessed_at) las que solo aporta la semántica.
+        let mut por_id: std::collections::HashMap<String, MemoryIndexRow> =
+            fts.into_iter().map(|r| (r.id.clone(), r)).collect();
+        let faltantes: Vec<String> = ids
+            .iter()
+            .filter(|id| !por_id.contains_key(*id))
+            .cloned()
+            .collect();
+        for r in self.db.index_rows_for_ids(&faltantes)? {
+            por_id.insert(r.id.clone(), r);
+        }
+        Ok(ids
+            .into_iter()
+            .filter_map(|id| por_id.remove(&id))
+            .collect())
+    }
+
+    /// Estado de la semántica: `(prendida, modelo, ollama_disponible, embebidas, total)`.
+    pub fn semantic_status(&self) -> rusqlite::Result<(bool, String, bool, i64, i64)> {
+        let activa = self.semantica_activa();
+        let modelo = self.modelo_embed();
+        let disponible = turtle_embed::disponible(&turtle_embed::ollama_host());
+        let (con, total) = self.db.embedding_counts()?;
+        Ok((activa, modelo, disponible, con, total))
+    }
+
+    /// Prende la semántica: registra el flag y el modelo. Falla si Ollama no responde (el pull del
+    /// modelo y el backfill los orquesta la CLI con feedback).
+    pub fn semantic_enable(&self, modelo: &str) -> Result<(), String> {
+        let host = turtle_embed::ollama_host();
+        if !turtle_embed::disponible(&host) {
+            return Err(format!(
+                "Ollama no responde en {host}. Instalá/arrancá Ollama y reintentá."
+            ));
+        }
+        self.db
+            .setting_set(SEMANTIC_KEY, "1")
+            .map_err(|e| e.to_string())?;
+        self.db
+            .setting_set(EMBED_MODEL_KEY, modelo)
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// Apaga la semántica (vuelve a FTS puro). No borra los embeddings ya calculados.
+    pub fn semantic_disable(&self) -> rusqlite::Result<()> {
+        self.db.setting_set(SEMANTIC_KEY, "0")
+    }
+
+    /// `true` si el modelo ya está descargado en Ollama.
+    pub fn semantic_model_present(&self, modelo: &str) -> bool {
+        turtle_embed::modelo_presente(&turtle_embed::ollama_host(), modelo)
+    }
+
+    /// Descarga el modelo de embeddings en Ollama (bloqueante; puede tardar).
+    pub fn semantic_pull(&self, modelo: &str) -> Result<(), String> {
+        turtle_embed::pull(&turtle_embed::ollama_host(), modelo).map_err(|e| e.to_string())
+    }
+
+    /// Embebe en lote las memorias que aún no tienen embedding. Devuelve `(hechas, fallidas)`.
+    pub fn semantic_backfill(&self, lote: u32) -> rusqlite::Result<(usize, usize)> {
+        let host = turtle_embed::ollama_host();
+        let modelo = self.modelo_embed();
+        let pendientes = self.db.memories_missing_embedding(lote)?;
+        let (mut ok, mut err) = (0usize, 0usize);
+        for (id, texto) in pendientes {
+            match turtle_embed::embed(&host, &modelo, &texto) {
+                Ok(v) => {
+                    let _ = self.db.upsert_embedding(&id, &modelo, &v);
+                    ok += 1;
+                }
+                Err(_) => err += 1,
+            }
+        }
+        Ok((ok, err))
     }
 
     /// Contexto de sesión: conjunto acotado y relevante para el proyecto y la tarea
