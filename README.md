@@ -116,7 +116,7 @@ Verifica: en una terminal nueva, `turtle --version`.
    turtle install claude-code   # o directo por nombre
    ```
 
-   Soporta `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `gemini-cli` y `codex`.
+   Soporta `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `gemini-cli`, `codex` y `opencode`.
 
    > `turtle install` = sembrar el bundle **+** `turtle setup`. Si usaste solo `turtle setup` (que
    > **no** siembra) y `turtle stats` muestra **0 skills**, corre `turtle skills seed`.
@@ -141,7 +141,7 @@ Verifica: en una terminal nueva, `turtle --version`.
   ```json
   { "command": "turtle", "args": ["mcp"] }
   ```
-- Inyecta el **protocolo de uso** de Turtle en las instrucciones del cliente (en Claude Code, `~/.claude/CLAUDE.md`; en Codex, `~/.codex/AGENTS.md`), en un bloque marcado y reemplazable.
+- Inyecta el **protocolo de uso** de Turtle en las instrucciones del cliente (en Claude Code, `~/.claude/CLAUDE.md`; en Codex, `~/.codex/AGENTS.md`; en OpenCode, `~/.config/opencode/AGENTS.md`), en un bloque marcado y reemplazable.
 - En Claude Code, además instala las **9 personas** como subagentes (`~/.claude/agents/`) y cablea los hooks de sesión.
 
 **Dónde viven las cosas:**
@@ -151,6 +151,7 @@ Verifica: en una terminal nueva, `turtle --version`.
 | Base de datos (tu memoria) | carpeta de datos del usuario, o `--db` / `$TURTLE_DB` |
 | Config MCP de Claude Code | `~/.claude.json` |
 | Config MCP de Codex | `~/.codex/config.toml` (tabla `[mcp_servers.turtle]`) |
+| Config MCP de OpenCode | `~/.config/opencode/opencode.json` (objeto `mcp`, entrada `type: "local"`) |
 | Overrides de modelo por persona | `~/.turtle/models.conf` |
 
 **Revisar / verificar:**

@@ -17,6 +17,10 @@ enum Formato {
     JsonMcpServers,
     /// TOML con una tabla `[mcp_servers.<nombre>]` (Codex).
     Toml,
+    /// JSON con un objeto `mcp` y entradas `{"type":"local","command":[…],"enabled":true}`
+    /// (OpenCode). NO usa el `mcpServers` estándar ni `command` como string: el comando va como
+    /// array de argumentos. Ver <https://opencode.ai/docs/mcp-servers/>.
+    JsonMcpLocal,
 }
 
 /// Un cliente MCP que Turtle sabe configurar.
@@ -60,6 +64,11 @@ const CLIENTES: &[Cliente] = &[
         nombre: "Codex",
         formato: Formato::Toml,
     },
+    Cliente {
+        id: "opencode",
+        nombre: "OpenCode",
+        formato: Formato::JsonMcpLocal,
+    },
 ];
 
 /// Punto de entrada del subcomando. `agente` elige el cliente; si es `None`, se muestra un
@@ -82,6 +91,7 @@ pub fn ejecutar(agente: Option<String>, config_override: Option<PathBuf>) -> Res
     match cliente.formato {
         Formato::JsonMcpServers => aplicar_json(&ruta, &binario)?,
         Formato::Toml => aplicar_toml(&ruta, &binario)?,
+        Formato::JsonMcpLocal => aplicar_json_local(&ruta, &binario)?,
     }
 
     println!(
@@ -178,6 +188,9 @@ fn ruta_config(id: &str) -> Option<PathBuf> {
             .join("mcp_config.json"),
         "gemini-cli" => home.join(".gemini").join("settings.json"),
         "codex" => home.join(".codex").join("config.toml"),
+        // OpenCode usa `~/.config/opencode/` literal en macOS, Linux y Windows nativo (no `%APPDATA%`),
+        // así que se arma desde el home y no desde `config_dir()`. Ver https://opencode.ai/docs/config/.
+        "opencode" => home.join(".config").join("opencode").join("opencode.json"),
         _ => return None,
     })
 }
@@ -197,6 +210,8 @@ fn ruta_instrucciones(id: &str) -> Option<PathBuf> {
     match id {
         "claude-code" => Some(home.join(".claude").join("CLAUDE.md")),
         "codex" => Some(home.join(".codex").join("AGENTS.md")),
+        // OpenCode lee reglas globales de `~/.config/opencode/AGENTS.md`. Ver https://opencode.ai/docs/rules/.
+        "opencode" => Some(home.join(".config").join("opencode").join("AGENTS.md")),
         _ => None,
     }
 }
@@ -476,6 +491,7 @@ pub fn desinstalar(agente: Option<String>, config_override: Option<PathBuf>) -> 
     let quitado_mcp = match cliente.formato {
         Formato::JsonMcpServers => quitar_mcp_json(&ruta)?,
         Formato::Toml => quitar_mcp_toml(&ruta)?,
+        Formato::JsonMcpLocal => quitar_mcp_json_local(&ruta)?,
     };
     println!(
         "MCP de Turtle {} en {}.",
@@ -546,6 +562,29 @@ fn quitar_mcp_json(ruta: &Path) -> Result<bool, String> {
         .map_err(|e| format!("JSON inválido en {}: {e}", ruta.display()))?;
     let quitado = raiz
         .get_mut("mcpServers")
+        .and_then(|s| s.as_object_mut())
+        .map(|o| o.remove("turtle").is_some())
+        .unwrap_or(false);
+    if quitado {
+        let pretty = serde_json::to_string_pretty(&raiz).map_err(|e| e.to_string())?;
+        escribir(ruta, &(pretty + "\n"))?;
+    }
+    Ok(quitado)
+}
+
+/// Quita la clave `turtle` del objeto `mcp` en un JSON (OpenCode), preservando el resto.
+fn quitar_mcp_json_local(ruta: &Path) -> Result<bool, String> {
+    if !ruta.exists() {
+        return Ok(false);
+    }
+    let txt = leer(ruta)?;
+    if txt.trim().is_empty() {
+        return Ok(false);
+    }
+    let mut raiz: serde_json::Value = serde_json::from_str(&txt)
+        .map_err(|e| format!("JSON inválido en {}: {e}", ruta.display()))?;
+    let quitado = raiz
+        .get_mut("mcp")
         .and_then(|s| s.as_object_mut())
         .map(|o| o.remove("turtle").is_some())
         .unwrap_or(false);
@@ -653,6 +692,56 @@ fn aplicar_json(ruta: &Path, binario: &Path) -> Result<(), String> {
         serde_json::json!({
             "command": binario.display().to_string(),
             "args": ["mcp"],
+        }),
+    );
+
+    crear_padre(ruta)?;
+    let pretty = serde_json::to_string_pretty(&raiz).map_err(|e| e.to_string())?;
+    escribir(ruta, &(pretty + "\n"))
+}
+
+/// Fusiona la entrada MCP de Turtle dentro de un JSON con un objeto `mcp` (OpenCode), preservando
+/// el resto. A diferencia de `mcpServers`, la entrada lleva `type: "local"`, el comando va como
+/// array (`["<bin>", "mcp"]`) y se marca `enabled: true`. Ver https://opencode.ai/docs/mcp-servers/.
+fn aplicar_json_local(ruta: &Path, binario: &Path) -> Result<(), String> {
+    let mut raiz: serde_json::Value = if ruta.exists() {
+        let txt = leer(ruta)?;
+        if txt.trim().is_empty() {
+            serde_json::json!({})
+        } else {
+            serde_json::from_str(&txt).map_err(|e| {
+                format!(
+                    "la config existente no es JSON válido ({}): {e}",
+                    ruta.display()
+                )
+            })?
+        }
+    } else {
+        serde_json::json!({})
+    };
+
+    let obj = raiz.as_object_mut().ok_or_else(|| {
+        format!(
+            "la config existente no es un objeto JSON ({}).",
+            ruta.display()
+        )
+    })?;
+    // Deja el `$schema` de OpenCode si el archivo es nuevo (ayuda al autocompletado del editor).
+    obj.entry("$schema")
+        .or_insert_with(|| serde_json::json!("https://opencode.ai/config.json"));
+    let servers = obj.entry("mcp").or_insert_with(|| serde_json::json!({}));
+    let servers = servers.as_object_mut().ok_or_else(|| {
+        format!(
+            "`mcp` no es un objeto en la config existente ({}).",
+            ruta.display()
+        )
+    })?;
+    servers.insert(
+        "turtle".to_string(),
+        serde_json::json!({
+            "type": "local",
+            "command": [binario.display().to_string(), "mcp"],
+            "enabled": true,
         }),
     );
 
@@ -822,6 +911,95 @@ mod tests {
         assert!(buscar_cliente("cursor").is_ok());
         let err = buscar_cliente("inexistente").unwrap_err();
         assert!(err.contains("cursor"), "{err}");
+    }
+
+    #[test]
+    fn opencode_json_local_fusiona_y_usa_el_esquema_correcto() {
+        let ruta = ruta_temp("opencode.json");
+        // Config existente con otro server bajo `mcp` y una clave ajena: ambos deben preservarse.
+        std::fs::write(
+            &ruta,
+            r#"{"mcp":{"otro":{"type":"local","command":["x"]}},"theme":"dark"}"#,
+        )
+        .unwrap();
+        aplicar_json_local(&ruta, Path::new("/usr/local/bin/turtle")).unwrap();
+
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&ruta).unwrap()).unwrap();
+        // Entrada de Turtle con el shape de OpenCode: `type` local, `command` array, `enabled` true.
+        assert_eq!(v["mcp"]["turtle"]["type"], "local");
+        assert_eq!(v["mcp"]["turtle"]["command"][0], "/usr/local/bin/turtle");
+        assert_eq!(v["mcp"]["turtle"]["command"][1], "mcp");
+        assert_eq!(v["mcp"]["turtle"]["enabled"], true);
+        // Preserva el otro server y la clave ajena.
+        assert_eq!(v["mcp"]["otro"]["command"][0], "x");
+        assert_eq!(v["theme"], "dark");
+        let _ = std::fs::remove_file(&ruta);
+    }
+
+    #[test]
+    fn opencode_json_local_crea_archivo_con_schema() {
+        let ruta = ruta_temp("opencode_nuevo.json");
+        let _ = std::fs::remove_file(&ruta);
+        aplicar_json_local(&ruta, Path::new("/bin/turtle")).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&ruta).unwrap()).unwrap();
+        // Archivo nuevo: lleva el `$schema` de OpenCode y la entrada de Turtle.
+        assert_eq!(v["$schema"], "https://opencode.ai/config.json");
+        assert_eq!(v["mcp"]["turtle"]["type"], "local");
+        assert_eq!(v["mcp"]["turtle"]["command"][1], "mcp");
+        let _ = std::fs::remove_file(&ruta);
+    }
+
+    #[test]
+    fn opencode_ruta_config_e_instrucciones_son_las_oficiales() {
+        // Config global: ~/.config/opencode/opencode.json (literal en todos los SO).
+        let cfg = ruta_config("opencode").unwrap();
+        assert!(cfg.ends_with("opencode.json"));
+        assert!(cfg
+            .to_string_lossy()
+            .replace('\\', "/")
+            .contains(".config/opencode/"));
+        // Reglas globales: ~/.config/opencode/AGENTS.md.
+        let md = ruta_instrucciones("opencode").unwrap();
+        assert!(md.ends_with("AGENTS.md"));
+        assert!(md
+            .to_string_lossy()
+            .replace('\\', "/")
+            .contains(".config/opencode/"));
+    }
+
+    #[test]
+    fn protocolo_opencode_es_core_sin_delegacion_de_subagentes() {
+        // OpenCode (single-agent como Codex): recibe el núcleo del MCP, NO la sección Claude-específica.
+        let ruta = ruta_temp("AGENTS_opencode.md");
+        inyectar_protocolo(&ruta, "opencode").unwrap();
+        let t = std::fs::read_to_string(&ruta).unwrap();
+        assert!(t.contains("session_start"), "lleva el núcleo del MCP");
+        assert!(
+            !t.contains("Delegación a sub-agentes"),
+            "OpenCode no lleva la sección de subagentes"
+        );
+        let _ = std::fs::remove_file(&ruta);
+    }
+
+    #[test]
+    fn rollback_quita_mcp_json_local_preservando_otros() {
+        let ruta = ruta_temp("rb_opencode.json");
+        aplicar_json_local(&ruta, Path::new("/bin/turtle")).unwrap();
+        let mut v: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&ruta).unwrap()).unwrap();
+        v["mcp"]["otro"] = serde_json::json!({"type": "local", "command": ["x"]});
+        std::fs::write(&ruta, serde_json::to_string(&v).unwrap()).unwrap();
+
+        assert!(quitar_mcp_json_local(&ruta).unwrap());
+        let v2: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&ruta).unwrap()).unwrap();
+        assert!(v2["mcp"].get("turtle").is_none(), "quitó turtle");
+        assert_eq!(v2["mcp"]["otro"]["command"][0], "x", "preservó el otro");
+        // Quitar de nuevo: ya no hay nada de Turtle.
+        assert!(!quitar_mcp_json_local(&ruta).unwrap());
+        let _ = std::fs::remove_file(&ruta);
     }
 
     #[test]
