@@ -305,7 +305,7 @@ fn texto_nudge(last_save: Option<i64>, last_nudge: Option<i64>, ahora: i64) -> O
     }
     let min = (ahora - last_save) / 60_000;
     Some(format!(
-        "💾 Hace ~{min} min que no guardás nada en este proyecto. Si decidiste o aprendiste algo no obvio, usá memory_save."
+        "💾 Hace ~{min} min que no guardas nada en este proyecto. Si decidiste o aprendiste algo no obvio, usá memory_save."
     ))
 }
 

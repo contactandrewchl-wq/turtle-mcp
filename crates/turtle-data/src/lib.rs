@@ -2025,7 +2025,7 @@ mod tests {
             project: "turtle".into(),
             from_agent: Some("frontend".into()),
             to_agent: Some("backend".into()),
-            body: "revisá el endpoint".into(),
+            body: "revisa el endpoint".into(),
         })
         .unwrap();
         // Difusión (to_agent = None): la ve cualquiera.

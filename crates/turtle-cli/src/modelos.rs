@@ -1,12 +1,12 @@
 //! `turtle modelos` — configurador de modelo por persona para Claude Code (por subscripción).
 //!
 //! Turtle es un MCP provider-agnóstico: cada persona se instala como subagente de Claude Code con
-//! un campo `model:` que Claude Code respeta. Acá el usuario elige ese modelo por persona; la
+//! un campo `model:` que Claude Code respeta. Aquí el usuario elige ese modelo por persona; la
 //! elección se guarda en `~/.turtle/models.conf` (formato `slug = modelo`, una línea por persona) y
 //! se aplica reescribiendo los subagentes en `~/.claude/agents/`. No toca la base de Turtle ni
 //! lanza procesos (RF observa-no-lanza): es pura configuración de lo que se escribe en los archivos.
 //!
-//! El modelo en uso lo determina qué CLI corrés (Claude Code → Claude). El catálogo de modelos vive
+//! El modelo en uso lo determina qué CLI corres (Claude Code → Claude). El catálogo de modelos vive
 //! en `turtle_service::MODELOS_CLAUDE`. Codex y otros CLIs tendrán su propio adaptador más adelante.
 
 use std::collections::BTreeMap;
@@ -52,7 +52,7 @@ fn parsear_overrides(contenido: &str) -> BTreeMap<String, String> {
 /// `parsear_overrides`.
 fn serializar_overrides(overrides: &BTreeMap<String, String>) -> String {
     let mut texto = String::from(
-        "# Turtle — modelo por persona (Claude Code). Editá con: turtle modelos set <persona>=<modelo>\n",
+        "# Turtle — modelo por persona (Claude Code). Edita con: turtle modelos set <persona>=<modelo>\n",
     );
     for (slug, modelo) in overrides {
         texto.push_str(&format!("{slug} = {modelo}\n"));
@@ -87,7 +87,7 @@ pub(crate) fn ejecutar(accion: Option<AccionModelos>) -> Result<(), String> {
     }
 }
 
-/// Menú interactivo: elegí una persona, luego un modelo; se aplica al instante. Repite hasta salir.
+/// Menú interactivo: elige una persona, luego un modelo; se aplica al instante. Repite hasta salir.
 /// Si la entrada no es una terminal (redirección/pipe/hook), cae a la vista estática `listar`.
 fn menu() -> Result<(), String> {
     use std::io::IsTerminal;

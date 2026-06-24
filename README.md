@@ -48,7 +48,7 @@ Medido en datos reales (12 resultados, ~580 caracteres cada uno; `estimate_token
 
 ## Búsqueda semántica (opt-in)
 
-Por defecto Turtle busca con **FTS5** (rápido, local, cero dependencias) — alcanza para la mayoría de los casos. Si además querés **recall semántico** (encontrar memorias por significado, no solo por palabras), se prende con un comando:
+Por defecto Turtle busca con **FTS5** (rápido, local, cero dependencias) — alcanza para la mayoría de los casos. Si además quieres **recall semántico** (encontrar memorias por significado, no solo por palabras), se prende con un comando:
 
 ```sh
 turtle semantic on
@@ -198,7 +198,7 @@ turtle comparar <id_a> <id_b>      # contenido de ambas, para decidir
 ```sh
 turtle sesion iniciar implementar sesiones -a dev   # muestra el contexto inicial (deltas)
 turtle sesion cerrar <id>                           # resumen automático de lo hecho
-turtle mensaje "revisá el endpoint" -a backend --de frontend   # relevo dirigido
+turtle mensaje "revisa el endpoint" -a backend --de frontend   # relevo dirigido
 turtle bandeja backend                              # bandeja de un rol (pendientes)
 turtle checkpoint "voy por el paso 3 de 5"          # sobrevive a la compactación
 turtle actividad                                    # feed de actividad por agente
@@ -207,7 +207,7 @@ turtle actividad                                    # feed de actividad por agen
 **Modelo por persona** (Claude Code, según tu subscripción):
 
 ```sh
-turtle modelos                     # menú interactivo: elegí persona y modelo
+turtle modelos                     # menú interactivo: elige persona y modelo
 turtle modelos set donatello=opus brunelleschi=haiku   # directo
 turtle modelos reset               # volver a los modelos por defecto
 ```

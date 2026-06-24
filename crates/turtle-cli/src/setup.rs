@@ -1,7 +1,7 @@
 //! `turtle setup` — registra el servidor MCP de Turtle en la configuración de un cliente
 //! (Claude Code, Cursor, etc.), para que lo levante solo en cada sesión (RF-IS-05, TF2-36).
 //!
-//! elegís el cliente (por argumento o por un menú) y
+//! eliges el cliente (por argumento o por un menú) y
 //! Turtle escribe la entrada MCP en su config, fusionándola con lo que ya haya. Resuelve la
 //! ruta **absoluta** del binario (`current_exe`) para que el cliente lo encuentre aunque el
 //! comando `turtle` no esté en el PATH del proceso que lo lanza.
@@ -99,7 +99,7 @@ pub fn ejecutar(agente: Option<String>, config_override: Option<PathBuf>) -> Res
         cliente.nombre,
         ruta.display()
     );
-    println!("Reiniciá {} para que tome el servidor MCP.", cliente.nombre);
+    println!("Reinicia {} para que tome el servidor MCP.", cliente.nombre);
 
     // Configurador: además del MCP, inyecta el protocolo de Turtle en las instrucciones del cliente.
     if let Some(md) = ruta_instrucciones(cliente.id) {
@@ -147,7 +147,7 @@ fn elegir_interactivo() -> Result<&'static Cliente, String> {
         };
         println!("  {}) {}{}", i + 1, c.nombre, marca);
     }
-    print!("Elegí un número (Enter para cancelar): ");
+    print!("Elige un número (Enter para cancelar): ");
     std::io::stdout().flush().ok();
 
     let mut linea = String::new();
@@ -221,13 +221,13 @@ fn ruta_instrucciones(id: &str) -> Option<PathBuf> {
 fn protocolo_core() -> &'static str {
     r#"## Turtle — memoria persistente y coordinación (vía MCP)
 
-Tenés disponible el servidor MCP `turtle`. Protocolo de uso:
+Tienes disponible el servidor MCP `turtle`. Protocolo de uso:
 
 - Al iniciar: llamá `session_start` con tu rótulo (rol/dominio) y la tarea; te entrega contexto y relevos pendientes.
 - Antes de re-derivar algo: buscá con `memory_search`; traé el detalle con `memory_get` solo si hace falta (cuidá los tokens).
 - Cuando decidas algo no obvio: guardalo con `memory_save` (tipo decision/architecture) con What/Why/Where/Learned.
-- Skills: descubrí con `skills_search` y cargá con `skill_get` (comportamiento always-on, conocimiento y herramienta).
-- Coordinación/relevos: hablá con otros por rótulo con `message_send`; revisá tu `inbox`. Personas: backend, frontend, seguridad, arquitectura, revision, orquestador, sdd, api, seo.
+- Skills: descubrí con `skills_search` y carga con `skill_get` (comportamiento always-on, conocimiento y herramienta).
+- Coordinación/relevos: hablá con otros por rótulo con `message_send`; revisa tu `inbox`. Personas: backend, frontend, seguridad, arquitectura, revision, orquestador, sdd, api, seo.
 - Al cerrar: `session_close` con un resumen.
 - Respondé en español latino neutro."#
 }
@@ -237,7 +237,7 @@ Tenés disponible el servidor MCP `turtle`. Protocolo de uso:
 fn protocolo_delegacion_claude() -> &'static str {
     r#"## Delegación a sub-agentes (se ve en el árbol main/sub-agente de Claude Code)
 Cuando la tarea tenga dueño claro, delegá con el tool Task en vez de hacer todo en el hilo principal:
-- **Investigar, leer o recapitular** ("¿qué hicimos?", "leé/revisá X", "resumime Y") → sub-agente en **sonnet** (rápido y barato). Es el ÚNICO uso de sonnet.
+- **Investigar, leer o recapitular** ("¿qué hicimos?", "leé/revisa X", "resumime Y") → sub-agente en **sonnet** (rápido y barato). Es el ÚNICO uso de sonnet.
 - **Codear, diseñar arquitectura, razonar o decidir** → modelo frontera **opus 4.8** (todas las personas corren en opus): backend brunelleschi · frontend michelangelo · API pacioli · arquitectura donatello · plan/SDD alberti · seguridad raphael · revisión de PR vasari · SEO botticelli · coordinación leonardo.
 - Lo trivial resolvelo en el hilo principal; no delegues por delegar."#
 }
@@ -519,7 +519,7 @@ pub fn desinstalar(agente: Option<String>, config_override: Option<PathBuf>) -> 
             );
         }
     }
-    println!("Listo. La memoria sembrada en la base se conserva (borrala aparte si querés).");
+    println!("Listo. La memoria sembrada en la base se conserva (borrala aparte si quieres).");
     Ok(())
 }
 
@@ -759,7 +759,7 @@ fn aplicar_toml(ruta: &Path, binario: &Path) -> Result<(), String> {
     };
     if actual.contains("[mcp_servers.turtle]") {
         return Err(format!(
-            "{} ya tiene [mcp_servers.turtle]; editalo a mano si querés cambiar la ruta.",
+            "{} ya tiene [mcp_servers.turtle]; editalo a mano si quieres cambiar la ruta.",
             ruta.display()
         ));
     }

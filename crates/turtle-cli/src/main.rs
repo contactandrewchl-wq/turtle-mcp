@@ -519,9 +519,9 @@ fn semantic_cmd(
                 let host = std::env::var("OLLAMA_HOST")
                     .unwrap_or_else(|_| "http://localhost:11434".into());
                 println!("Ollama no responde en {host}. Para usar semántica:");
-                println!("  1) Instalá Ollama:  https://ollama.com/download");
-                println!("  2) Dejalo corriendo (suele quedar como servicio).");
-                println!("  3) Reintentá:       turtle semantic on");
+                println!("  1) Instala Ollama:  https://ollama.com/download");
+                println!("  2) Déjalo corriendo (suele quedar como servicio).");
+                println!("  3) Reintenta:       turtle semantic on");
                 println!("Mientras tanto, Turtle sigue funcionando con FTS (rápido y local).");
                 return Ok(());
             }
@@ -544,13 +544,13 @@ fn semantic_cmd(
                 }
             }
             let cola = if err > 0 {
-                format!(", {err} fallaron (reintentá luego con la base ya prendida)")
+                format!(", {err} fallaron (reintenta luego con la base ya prendida)")
             } else {
                 String::new()
             };
             println!("✓ Semántica ON (modelo «{modelo}»). Embebidas {ok} memorias{cola}.");
             println!(
-                "  La búsqueda ahora combina FTS + similitud semántica (RRF). Apagá con: turtle semantic off"
+                "  La búsqueda ahora combina FTS + similitud semántica (RRF). Apaga con: turtle semantic off"
             );
         }
     }
@@ -771,7 +771,7 @@ fn despachar(comando: Comando, servicio: MemoryService) -> Result<(), String> {
                 if filas.is_empty() {
                     println!("Sin memorias por revisar en «{proyecto}».");
                 } else {
-                    println!("Memorias por revisar (verificá antes de confiar):");
+                    println!("Memorias por revisar (verifica antes de confiar):");
                     imprimir_filas(&filas);
                 }
             }
@@ -1231,7 +1231,7 @@ fn despachar(comando: Comando, servicio: MemoryService) -> Result<(), String> {
             let n = servicio.seed_bundled().map_err(|e| e.to_string())?;
             println!("Skills y personas sembradas: {n}.");
             setup::ejecutar(agente, config)?;
-            println!("Listo. Reiniciá tu cliente para que tome el servidor MCP de Turtle.");
+            println!("Listo. Reinicia tu cliente para que tome el servidor MCP de Turtle.");
         }
         Comando::Setup { .. }
         | Comando::Uninstall { .. }
@@ -1408,7 +1408,7 @@ fn imprimir_memoria(m: &Memory) {
     }
     if m.review_state != turtle_core::memory::ReviewState::Active {
         println!(
-            "estado:    {} (verificá antes de confiar)",
+            "estado:    {} (verifica antes de confiar)",
             m.review_state.as_str()
         );
     }

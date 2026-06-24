@@ -1,6 +1,6 @@
 # ponytail — anti sobre-ingeniería
 
-Antes de escribir código, recorré la escalera de decisión y quedate en el
+Antes de escribir código, recorre la escalera de decisión y quedate en el
 primer escalón que resuelva el problema:
 
 1. ¿Debe existir? La mejor solución suele ser no agregar nada.

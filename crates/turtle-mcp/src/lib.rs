@@ -1190,7 +1190,7 @@ pub struct FilaIndice {
     pub tipo: String,
     /// Resumen de una línea, si existe.
     pub resumen: Option<String>,
-    /// `true` si la memoria está marcada para revisión (contexto añejo): verificá antes de confiar.
+    /// `true` si la memoria está marcada para revisión (contexto añejo): verifica antes de confiar.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub needs_review: bool,
     /// Cuerpo según la verbosidad: extracto (compacto) o contenido completo (completo).
@@ -2089,7 +2089,7 @@ mod tests {
             proyecto: Some("turtle".into()),
             de: Some("frontend".into()),
             para: Some("backend".into()),
-            cuerpo: "revisá el endpoint".into(),
+            cuerpo: "revisa el endpoint".into(),
         }))
         .await
         .unwrap();
@@ -2103,7 +2103,7 @@ mod tests {
             .unwrap()
             .0;
         assert_eq!(bandeja.mensajes.len(), 1);
-        assert_eq!(bandeja.mensajes[0].cuerpo, "revisá el endpoint");
+        assert_eq!(bandeja.mensajes[0].cuerpo, "revisa el endpoint");
         assert_eq!(bandeja.mensajes[0].de.as_deref(), Some("frontend"));
     }
 

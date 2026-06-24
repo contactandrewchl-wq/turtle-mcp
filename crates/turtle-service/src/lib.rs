@@ -789,7 +789,7 @@ impl MemoryService {
         let host = turtle_embed::ollama_host();
         if !turtle_embed::disponible(&host) {
             return Err(format!(
-                "Ollama no responde en {host}. Instalá/arrancá Ollama y reintentá."
+                "Ollama no responde en {host}. Instala/arranca Ollama y reintenta."
             ));
         }
         self.db
@@ -1658,7 +1658,7 @@ mod tests {
             "turtle",
             Some("frontend"),
             Some("backend"),
-            "revisá el endpoint",
+            "revisa el endpoint",
         )
         .unwrap();
 
@@ -1671,7 +1671,7 @@ mod tests {
         // La entrega devuelve el pendiente y lo marca; la segunda vez ya no hay pendientes.
         let entregados = s.deliver_inbox("turtle", "backend").unwrap();
         assert_eq!(entregados.len(), 1);
-        assert_eq!(entregados[0].body, "revisá el endpoint");
+        assert_eq!(entregados[0].body, "revisa el endpoint");
         assert!(s.deliver_inbox("turtle", "backend").unwrap().is_empty());
     }
 

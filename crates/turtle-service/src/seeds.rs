@@ -109,7 +109,7 @@ pub struct SubagenteClaude {
 
 /// Genera los subagentes de Claude Code a partir de las personas embebidas. `overrides` mapea
 /// `slug → modelo` elegido por el usuario (vía `turtle modelos`); cuando hay uno, pisa el `model`
-/// del frontmatter. Pasá un mapa vacío para usar los modelos por defecto del bundle.
+/// del frontmatter. Pasa un mapa vacío para usar los modelos por defecto del bundle.
 pub fn subagentes_claude(overrides: &BTreeMap<String, String>) -> Vec<SubagenteClaude> {
     let mut out = Vec::new();
     recolectar_agentes(&AGENTS_DIR, overrides, &mut out);
