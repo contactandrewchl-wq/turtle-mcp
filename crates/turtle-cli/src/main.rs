@@ -156,7 +156,8 @@ enum Comando {
         /// Identificador de la memoria.
         id: String,
     },
-    /// Propone memorias probablemente duplicadas para consolidar (por solapamiento de título y contenido, sin IA).
+    /// Propone memorias probablemente duplicadas para consolidar: por título/contenido (FTS) y, si la
+    /// semántica está prendida, también por significado (embeddings).
     Duplicados {
         /// Proyecto a escanear (por defecto: el actual).
         #[arg(short = 'p', long)]

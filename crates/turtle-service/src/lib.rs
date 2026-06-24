@@ -49,6 +49,9 @@ const SEMANTIC_KEY: &str = "semantic_enabled";
 const EMBED_MODEL_KEY: &str = "embed_model";
 /// Constante de la fusión Reciprocal Rank Fusion (RRF). 60 es el valor clásico de la literatura.
 const RRF_K: f64 = 60.0;
+/// Umbral de coseno para proponer un par como duplicado por **significado** (pase semántico de
+/// consolidación). Conservador, para surfacear solo solapamientos fuertes y no inundar de ruido.
+const UMBRAL_DUP_SEM: f32 = 0.82;
 
 /// Detecta el proyecto a partir de `cwd`: nombre de la raíz del repo git si la hay; si no, el
 /// nombre de la carpeta; `default` como último recurso. Es la convención compartida por CLI, MCP
@@ -501,7 +504,82 @@ impl MemoryService {
                 .partial_cmp(&y.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        // Pase semántico (solo si la semántica está prendida): agrega pares por **significado**
+        // (coseno sobre los embeddings YA guardados; no llama a Ollama). Cierra la brecha con la
+        // detección por IA de otros sistemas, pero local. Se anexan después de los de FTS.
+        if self.semantica_activa() {
+            let semanticos = self.candidatos_semanticos(project, &recientes, &mut vistos)?;
+            pares.extend(semanticos);
+        }
         Ok(pares)
+    }
+
+    /// Candidatos a duplicado por **similitud semántica**: coseno sobre los embeddings guardados,
+    /// top-1 por memoria escaneada por encima de `UMBRAL_DUP_SEM`. Usa solo vectores ya persistidos
+    /// (no llama a Ollama) y deduplica contra `vistos` (lo que ya propuso el pase FTS).
+    fn candidatos_semanticos(
+        &self,
+        project: &str,
+        recientes: &[MemoryIndexRow],
+        vistos: &mut std::collections::HashSet<(String, String)>,
+    ) -> rusqlite::Result<Vec<DupCandidato>> {
+        let embs = self.db.embeddings_for_scope(Some(project))?;
+        if embs.len() < 2 {
+            return Ok(Vec::new());
+        }
+        let mut crudos: Vec<(String, String, f32)> = Vec::new();
+        for m in recientes {
+            let Some(mv) = embs
+                .iter()
+                .find_map(|(id, v)| (id == &m.id).then_some(v.as_slice()))
+            else {
+                continue; // esta memoria todavía no tiene embedding (p. ej. guardada con semántica off)
+            };
+            let mut mejor: Option<(&str, f32)> = None;
+            for (oid, ov) in &embs {
+                if oid == &m.id {
+                    continue;
+                }
+                let sim = turtle_embed::coseno(mv, ov);
+                if sim >= UMBRAL_DUP_SEM && mejor.map_or(true, |(_, bs)| sim > bs) {
+                    mejor = Some((oid.as_str(), sim));
+                }
+            }
+            if let Some((oid, sim)) = mejor {
+                let clave = if m.id.as_str() <= oid {
+                    (m.id.clone(), oid.to_string())
+                } else {
+                    (oid.to_string(), m.id.clone())
+                };
+                if vistos.insert(clave) {
+                    crudos.push((m.id.clone(), oid.to_string(), sim));
+                }
+            }
+        }
+        if crudos.is_empty() {
+            return Ok(Vec::new());
+        }
+        crudos.sort_by(|a, b| b.2.total_cmp(&a.2)); // coseno desc: más parecido primero
+        let ids: Vec<String> = crudos
+            .iter()
+            .flat_map(|(a, b, _)| [a.clone(), b.clone()])
+            .collect();
+        let titulos: std::collections::HashMap<String, String> = self
+            .db
+            .index_rows_for_ids(&ids)?
+            .into_iter()
+            .map(|r| (r.id, r.title))
+            .collect();
+        Ok(crudos
+            .into_iter()
+            .map(|(a, b, sim)| DupCandidato {
+                a_titulo: titulos.get(&a).cloned().unwrap_or_default(),
+                b_titulo: titulos.get(&b).cloned().unwrap_or_default(),
+                a_id: a,
+                b_id: b,
+                score: -(sim as f64), // negativo: coherente con "más negativo = más fuerte"
+            })
+            .collect())
     }
 
     /// Consolida memorias de un proyecto en otro reasignándolas (RF-MEM-09). Operación explícita.
@@ -1401,6 +1479,26 @@ mod tests {
                 .iter()
                 .all(|p| !p.a_titulo.contains("Política") && !p.b_titulo.contains("Política")),
             "la memoria no relacionada no genera par"
+        );
+    }
+
+    #[test]
+    fn consolidation_semantica_propone_por_significado() {
+        let s = servicio();
+        // Títulos/contenido SIN solapamiento léxico: el pase FTS no los emparejaría.
+        let id1 = s.save(&nueva("Alfa", "uno", "a")).unwrap();
+        let id2 = s.save(&nueva("Beta", "dos", "b")).unwrap();
+        // Embeddings idénticos → coseno 1.0 ≥ umbral. Los cargo a mano (sin Ollama) y prendo el flag.
+        s.db.upsert_embedding(&id1, "m", &[1.0, 0.0, 0.0]).unwrap();
+        s.db.upsert_embedding(&id2, "m", &[1.0, 0.0, 0.0]).unwrap();
+        s.db.setting_set("semantic_enabled", "1").unwrap();
+
+        let pares = s.consolidation_candidates("turtle", 50).unwrap();
+        assert!(
+            pares
+                .iter()
+                .any(|p| { (p.a_id == id1 && p.b_id == id2) || (p.a_id == id2 && p.b_id == id1) }),
+            "el pase semántico debe proponer Alfa↔Beta (coseno alto) aunque FTS no los una"
         );
     }
 

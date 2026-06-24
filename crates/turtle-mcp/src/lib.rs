@@ -312,12 +312,13 @@ impl TurtleMcp {
         }))
     }
 
-    /// Consolidación asistida: propone pares de memorias probablemente duplicadas (sin IA).
+    /// Consolidación asistida: propone pares de memorias probablemente duplicadas (FTS + semántica si está prendida).
     #[tool(
         name = "memory_duplicates",
-        description = "Propone pares de memorias probablemente duplicadas en un proyecto (por \
-                       solapamiento de título y contenido vía FTS, sin IA) para que las consolides: fusiona \
-                       con memory_save + topic_key, vincula con relation_add, o borra la redundante. \
+        description = "Propone pares de memorias probablemente duplicadas en un proyecto para que las \
+                       consolides: por solapamiento de título y contenido (FTS) y, si la búsqueda semántica \
+                       está prendida, también por significado (embeddings, coseno local). Fusiona con \
+                       memory_save + topic_key, vincula con relation_add, o borra la redundante. \
                        Turtle propone; tú decides."
     )]
     async fn memory_duplicates(
