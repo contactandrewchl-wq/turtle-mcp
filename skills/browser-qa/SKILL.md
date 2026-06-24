@@ -69,8 +69,8 @@ Esto es **dependencia del entorno del usuario, no del núcleo de Turtle**. El n�
 
 ## Integración con Turtle
 
-- **Vera (frontend)** la usa para validar los **cuatro estados** de cada componente (loading / empty / error / success) y para correr el **snapshot de accesibilidad**. La regresión visual y los estados son parte del entregable, no un extra.
-- **Linus (revisión)** la exige como el **"cómo probarlo" verificable** antes de aprobar: un cambio de UI sin captura/diff reproducible no pasa revisión.
+- **Michelangelo (frontend)** la usa para validar los **cuatro estados** de cada componente (loading / empty / error / success) y para correr el **snapshot de accesibilidad**. La regresión visual y los estados son parte del entregable, no un extra.
+- **Vasari (revisión)** la exige como el **"cómo probarlo" verificable** antes de aprobar: un cambio de UI sin captura/diff reproducible no pasa revisión.
 - Los **baselines viven en el repo**, versionados y revisados como cualquier otro artefacto.
 - Relacionadas: [[accessibility-wcag]] para el criterio de accesibilidad que el snapshot verifica, [[frontend-component-patterns]] para los cuatro estados y la estructura de componentes que se capturan, y [[commit-hygiene]] para commitear baselines de forma limpia y trazable.
 

@@ -223,7 +223,7 @@ fn protocolo_delegacion_claude() -> &'static str {
     r#"## Delegación a sub-agentes (se ve en el árbol main/sub-agente de Claude Code)
 Cuando la tarea tenga dueño claro, delegá con el tool Task en vez de hacer todo en el hilo principal:
 - **Investigar, leer o recapitular** ("¿qué hicimos?", "leé/revisá X", "resumime Y") → sub-agente en **sonnet** (rápido y barato). Es el ÚNICO uso de sonnet.
-- **Codear, diseñar arquitectura, razonar o decidir** → modelo frontera **opus 4.8** (todas las personas corren en opus): backend charles · frontend vera · API roy · arquitectura ada · plan/SDD margaret · seguridad hedy · revisión de PR linus · SEO larry · coordinación grace.
+- **Codear, diseñar arquitectura, razonar o decidir** → modelo frontera **opus 4.8** (todas las personas corren en opus): backend brunelleschi · frontend michelangelo · API pacioli · arquitectura donatello · plan/SDD alberti · seguridad raphael · revisión de PR vasari · SEO botticelli · coordinación leonardo.
 - Lo trivial resolvelo en el hilo principal; no delegues por delegar."#
 }
 
@@ -728,17 +728,17 @@ mod tests {
     fn subagentes_se_escriben_con_override_y_respetan_ajenos() {
         let dir = dir_temp("agents");
         // Un archivo ajeno (sin el marcador) con el nombre de una persona NO debe pisarse.
-        let ajeno = dir.join("ada.md");
+        let ajeno = dir.join("donatello.md");
         std::fs::write(&ajeno, "subagente ajeno, no tocar").unwrap();
 
         let mut overrides = BTreeMap::new();
-        overrides.insert("charles".to_string(), "haiku".to_string());
+        overrides.insert("brunelleschi".to_string(), "haiku".to_string());
         let n = escribir_subagentes_en(&dir, &overrides).unwrap();
 
-        // charles escrito con el modelo elegido y el marcador.
-        let charles = std::fs::read_to_string(dir.join("charles.md")).unwrap();
-        assert!(charles.contains("model: haiku"), "aplica el override");
-        assert!(charles.contains("TURTLE-AGENT"));
+        // brunelleschi escrito con el modelo elegido y el marcador.
+        let brunelleschi = std::fs::read_to_string(dir.join("brunelleschi.md")).unwrap();
+        assert!(brunelleschi.contains("model: haiku"), "aplica el override");
+        assert!(brunelleschi.contains("TURTLE-AGENT"));
         // El ajeno quedó intacto.
         assert_eq!(
             std::fs::read_to_string(&ajeno).unwrap(),
@@ -746,7 +746,7 @@ mod tests {
         );
         // Se escribieron todas las personas menos la bloqueada por el archivo ajeno.
         let generados = turtle_service::subagentes_claude(&overrides).len();
-        assert_eq!(n, generados - 1, "ada quedó afuera por ser ajeno");
+        assert_eq!(n, generados - 1, "donatello quedó afuera por ser ajeno");
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -756,17 +756,17 @@ mod tests {
         let dir = dir_temp("agents2");
         // Primera escritura: modelos por defecto del bundle.
         escribir_subagentes_en(&dir, &BTreeMap::new()).unwrap();
-        assert!(std::fs::read_to_string(dir.join("charles.md"))
+        assert!(std::fs::read_to_string(dir.join("brunelleschi.md"))
             .unwrap()
             .contains("model:"));
 
-        // Segunda: charles → sonnet; reescribe el propio (lleva marcador) sin duplicar.
+        // Segunda: brunelleschi → sonnet; reescribe el propio (lleva marcador) sin duplicar.
         let mut overrides = BTreeMap::new();
-        overrides.insert("charles".to_string(), "sonnet".to_string());
+        overrides.insert("brunelleschi".to_string(), "sonnet".to_string());
         escribir_subagentes_en(&dir, &overrides).unwrap();
-        let despues = std::fs::read_to_string(dir.join("charles.md")).unwrap();
+        let despues = std::fs::read_to_string(dir.join("brunelleschi.md")).unwrap();
         assert!(despues.contains("model: sonnet"), "se actualizó el modelo");
-        assert!(dir.join("charles.md").is_file());
+        assert!(dir.join("brunelleschi.md").is_file());
 
         std::fs::remove_dir_all(&dir).ok();
     }

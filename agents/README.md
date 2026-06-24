@@ -1,6 +1,6 @@
 # Agentes de Turtle (personas)
 
-Una **persona** es una identidad de agente con nombre propio que agrupa, en un solo lugar, todo lo necesario para arrancar a trabajar de forma coherente: un **nombre** humano (ej. "Charles"), un **dominio** (ej. Backend), un **rótulo** de ruteo (ej. `backend`), un **loadout de skills** (qué skills de comportamiento van always-on y con qué nivel, más qué skills de conocimiento y herramienta quedan disponibles bajo demanda), una **voz** (tono y estilo de redacción) y reglas de **handoff** (a quién y cuándo ceder o pedir relevo). Una persona es solo una **selección**: elige rótulo y skills y fija una voz. **No otorga permisos nuevos** ni eleva privilegios; los permisos siguen siendo los del entorno y del usuario. Si una skill o capacidad no estaba disponible sin la persona, tampoco lo está con ella.
+Una **persona** es una identidad de agente con nombre propio que agrupa, en un solo lugar, todo lo necesario para arrancar a trabajar de forma coherente: un **nombre** humano (ej. "Brunelleschi"), un **dominio** (ej. Backend), un **rótulo** de ruteo (ej. `backend`), un **loadout de skills** (qué skills de comportamiento van always-on y con qué nivel, más qué skills de conocimiento y herramienta quedan disponibles bajo demanda), una **voz** (tono y estilo de redacción) y reglas de **handoff** (a quién y cuándo ceder o pedir relevo). Una persona es solo una **selección**: elige rótulo y skills y fija una voz. **No otorga permisos nuevos** ni eleva privilegios; los permisos siguen siendo los del entorno y del usuario. Si una skill o capacidad no estaba disponible sin la persona, tampoco lo está con ella.
 
 ## Relación con el resto de Turtle
 
@@ -16,9 +16,9 @@ Las personas no son un subsistema aparte: son una capa fina sobre las piezas que
 Cada persona vive en `agents/<slug>/AGENT.md`, con frontmatter YAML:
 
 ```yaml
-name: Charles
+name: Brunelleschi
 role: backend                 # rótulo de ruteo (clave del bus)
-label: "Charles [Backend]"    # alias humano para mostrar
+label: "Brunelleschi [Backend]"    # alias humano para mostrar
 description: Persona de dominio Backend; diseño de APIs, modelado de datos y observabilidad.
 metadata:
   domain: Backend
@@ -51,7 +51,7 @@ metadata:
 
 Notas del esquema:
 
-- `name` es el alias humano; `role` es el rótulo de ruteo (debe coincidir con el rótulo del roster) y `label` es el texto a mostrar (ej. `"Charles [Backend]"`).
+- `name` es el alias humano; `role` es el rótulo de ruteo (debe coincidir con el rótulo del roster) y `label` es el texto a mostrar (ej. `"Brunelleschi [Backend]"`).
 - `skills.behavior` lleva pares `{name, level}`; `knowledge` y `tool` son listas de nombres.
 - `handoffs` es una lista de `{to, when}` donde `to` es **el rótulo de destino**, no el nombre.
 - `version` versiona la definición de la persona.
@@ -62,15 +62,15 @@ Se elige al arrancar la sesión. El `--agente <slug>` resuelve el rótulo y prec
 
 ```bash
 # Iniciar sesión como una persona (resuelve rótulo + precarga loadout)
-turtle sesion iniciar "implementar endpoint de turnos" --agente charles
+turtle sesion iniciar "implementar endpoint de turnos" --agente brunelleschi
 
 # Relevo / coordinación entre personas (rutea por rótulo, no por nombre)
 turtle mensaje "te dejo el módulo de auth para revisión" -a seguridad --de backend
 ```
 
-El **nombre** ("Charles") es solo un alias humano para hablar de la persona; la **clave de ruteo del bus** siempre es el **rótulo** (`backend`, `seguridad`, ...). Toda la mensajería, bandejas y handoffs usan el rótulo.
+El **nombre** ("Brunelleschi") es solo un alias humano para hablar de la persona; la **clave de ruteo del bus** siempre es el **rótulo** (`backend`, `seguridad`, ...). Toda la mensajería, bandejas y handoffs usan el rótulo.
 
-> **Nota — `--agente <slug>` es un flag PROPUESTO**, parte de esta capa de personas (aún no implementado en el núcleo). Hoy el equivalente real es iniciar por rótulo: `turtle sesion iniciar "<tarea>" -a <rótulo>`; como la relación rótulo↔persona es 1:1 en el roster, `-a backend` ya equivale a "ser Charles". El flag `--agente` agrega azúcar (resolver por nombre y precargar el loadout automáticamente) y deja lugar a futuro para varias personas por rótulo. Ver [Extensión del SRS](#extensión-del-srs).
+> **Nota — `--agente <slug>` es un flag PROPUESTO**, parte de esta capa de personas (aún no implementado en el núcleo). Hoy el equivalente real es iniciar por rótulo: `turtle sesion iniciar "<tarea>" -a <rótulo>`; como la relación rótulo↔persona es 1:1 en el roster, `-a backend` ya equivale a "ser Brunelleschi". El flag `--agente` agrega azúcar (resolver por nombre y precargar el loadout automáticamente) y deja lugar a futuro para varias personas por rótulo. Ver [Extensión del SRS](#extensión-del-srs).
 
 ## Cómo se carga (capa S3)
 
@@ -105,14 +105,14 @@ Importar **personas o skills de terceros es contenido NO confiable**. Una defini
 
 | Nombre | Dominio | Rótulo | Definición |
 | --- | --- | --- | --- |
-| Charles | Backend | `backend` | [./charles/AGENT.md](./charles/AGENT.md) |
-| Vera | Frontend | `frontend` | [./vera/AGENT.md](./vera/AGENT.md) |
-| Hedy | Seguridad | `seguridad` | [./hedy/AGENT.md](./hedy/AGENT.md) |
-| Ada | Arquitectura | `arquitectura` | [./ada/AGENT.md](./ada/AGENT.md) |
-| Linus | Revisión | `revision` | [./linus/AGENT.md](./linus/AGENT.md) |
-| Grace | Orquestador | `orquestador` | [./grace/AGENT.md](./grace/AGENT.md) |
-| Margaret | SDD | `sdd` | [./margaret/AGENT.md](./margaret/AGENT.md) |
-| Roy | API Design | `api` | [./roy/AGENT.md](./roy/AGENT.md) |
-| Larry | GEO/SEO | `seo` | [./larry/AGENT.md](./larry/AGENT.md) |
+| Brunelleschi | Backend | `backend` | [./brunelleschi/AGENT.md](./brunelleschi/AGENT.md) |
+| Michelangelo | Frontend | `frontend` | [./michelangelo/AGENT.md](./michelangelo/AGENT.md) |
+| Raphael | Seguridad | `seguridad` | [./raphael/AGENT.md](./raphael/AGENT.md) |
+| Donatello | Arquitectura | `arquitectura` | [./donatello/AGENT.md](./donatello/AGENT.md) |
+| Vasari | Revisión | `revision` | [./vasari/AGENT.md](./vasari/AGENT.md) |
+| Leonardo | Orquestador | `orquestador` | [./leonardo/AGENT.md](./leonardo/AGENT.md) |
+| Alberti | SDD | `sdd` | [./alberti/AGENT.md](./alberti/AGENT.md) |
+| Pacioli | API Design | `api` | [./pacioli/AGENT.md](./pacioli/AGENT.md) |
+| Botticelli | GEO/SEO | `seo` | [./botticelli/AGENT.md](./botticelli/AGENT.md) |
 
 Índice completo del roster: [./roster.md](./roster.md).

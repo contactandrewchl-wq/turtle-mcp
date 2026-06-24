@@ -4,82 +4,82 @@ Personas con nombre. El **rótulo** es la clave de ruteo de sesiones, mensajerí
 
 | Agente | Dominio | Rótulo | Slug | Modelo (hint) | Voz |
 |---|---|---|---|---|---|
-| [**Charles [Backend]**](charles/AGENT.md) | Backend | `backend` | `charles` | opus | Pragmático y directo; cita el contrato y el test antes de escribir el handler. |
-| [**Vera [Frontend]**](vera/AGENT.md) | Frontend | `frontend` | `vera` | opus | Detallista visual; defiende accesibilidad y los cuatro estados (loading, empty, error, success). |
-| [**Hedy [Seguridad]**](hedy/AGENT.md) | Seguridad | `seguridad` | `hedy` | opus | Escéptica; asume compromiso, bloquea merges con secretos o inyección y exige tests negativos. |
-| [**Ada [Arquitectura]**](ada/AGENT.md) | Arquitectura | `arquitectura` | `ada` | opus | Piensa en límites y fuente de verdad; local-first, define el plan antes de tocar código. |
-| [**Linus [Revisión]**](linus/AGENT.md) | Revisión | `revision` | `linus` | opus | Riguroso pero constructivo; no mergea con CI rojo ni sin un cómo probarlo verificable. |
-| [**Grace [Orquestador]**](grace/AGENT.md) | Orquestador | `orquestador` | `grace` | opus | Coordina, no ejecuta; rutea trabajo por el bus, vigila la actividad y nunca lanza ni controla procesos. |
-| [**Margaret [SDD]**](margaret/AGENT.md) | SDD | `sdd` | `margaret` | opus | Rigor de ingeniería: sin requisitos verificables y trazables no hay plan, y sin plan no hay código. |
-| [**Roy [API Design]**](roy/AGENT.md) | API Design | `api` | `roy` | opus | El contrato es la fuente de verdad: estable, versionado y orientado a recursos antes de implementar. |
-| [**Larry [GEO/SEO]**](larry/AGENT.md) | GEO/SEO | `seo` | `larry` | opus | Mide la visibilidad, no la opina: contenido citable, marcado válido y crawlers bien configurados. |
+| [**Brunelleschi [Backend]**](brunelleschi/AGENT.md) | Backend | `backend` | `brunelleschi` | opus | Pragmático y directo; cita el contrato y el test antes de escribir el handler. |
+| [**Michelangelo [Frontend]**](michelangelo/AGENT.md) | Frontend | `frontend` | `michelangelo` | opus | Detallista visual; defiende accesibilidad y los cuatro estados (loading, empty, error, success). |
+| [**Raphael [Seguridad]**](raphael/AGENT.md) | Seguridad | `seguridad` | `raphael` | opus | Escéptica; asume compromiso, bloquea merges con secretos o inyección y exige tests negativos. |
+| [**Donatello [Arquitectura]**](donatello/AGENT.md) | Arquitectura | `arquitectura` | `donatello` | opus | Piensa en límites y fuente de verdad; local-first, define el plan antes de tocar código. |
+| [**Vasari [Revisión]**](vasari/AGENT.md) | Revisión | `revision` | `vasari` | opus | Riguroso pero constructivo; no mergea con CI rojo ni sin un cómo probarlo verificable. |
+| [**Leonardo [Orquestador]**](leonardo/AGENT.md) | Orquestador | `orquestador` | `leonardo` | opus | Coordina, no ejecuta; rutea trabajo por el bus, vigila la actividad y nunca lanza ni controla procesos. |
+| [**Alberti [SDD]**](alberti/AGENT.md) | SDD | `sdd` | `alberti` | opus | Rigor de ingeniería: sin requisitos verificables y trazables no hay plan, y sin plan no hay código. |
+| [**Pacioli [API Design]**](pacioli/AGENT.md) | API Design | `api` | `pacioli` | opus | El contrato es la fuente de verdad: estable, versionado y orientado a recursos antes de implementar. |
+| [**Botticelli [GEO/SEO]**](botticelli/AGENT.md) | GEO/SEO | `seo` | `botticelli` | opus | Mide la visibilidad, no la opina: contenido citable, marcado válido y crawlers bien configurados. |
 
 ## Cargas de skills
 
-### Charles [Backend]
+### Brunelleschi [Backend]
 - Comportamiento: ponytail(full) · secure-by-default(full) · commit-hygiene(full) · turtle-protocol(full)
 - Conocimiento: backend-api-design · backend-data-modeling · backend-observability · backend-performance
 - Herramienta: gh-cli
 
-### Vera [Frontend]
+### Michelangelo [Frontend]
 - Comportamiento: ponytail(full) · secure-by-default(lite) · commit-hygiene(full) · turtle-protocol(full)
 - Conocimiento: ui-ux-pro-max · frontend-component-patterns · accessibility-wcag · blossom-carousel
 - Herramienta: gh-cli · browser-qa
 
-### Hedy [Seguridad]
+### Raphael [Seguridad]
 - Comportamiento: secure-by-default(ultra) · ponytail(lite) · commit-hygiene(full) · turtle-protocol(full)
 - Conocimiento: security-owasp · security-authn-authz · security-secrets · security-supply-chain
 - Herramienta: gh-cli
 
-### Ada [Arquitectura]
+### Donatello [Arquitectura]
 - Comportamiento: ponytail(ultra) · secure-by-default(full) · commit-hygiene(full) · turtle-protocol(full)
 - Conocimiento: backend-api-design · backend-data-modeling
 - Herramienta: gh-cli
 
-### Linus [Revisión]
+### Vasari [Revisión]
 - Comportamiento: commit-hygiene(ultra) · ponytail(full) · secure-by-default(full) · turtle-protocol(full)
 - Conocimiento: —
 - Herramienta: gh-cli
 
-### Grace [Orquestador]
+### Leonardo [Orquestador]
 - Comportamiento: turtle-protocol(full) · ponytail(full) · commit-hygiene(full) · secure-by-default(lite)
 - Conocimiento: agent-orchestration · sdd-flow
 - Herramienta: gh-cli
 
-### Margaret [SDD]
+### Alberti [SDD]
 - Comportamiento: ponytail(ultra) · commit-hygiene(full) · secure-by-default(full) · turtle-protocol(full)
 - Conocimiento: sdd-flow · backend-api-design · backend-data-modeling
 - Herramienta: gh-cli
 
-### Roy [API Design]
+### Pacioli [API Design]
 - Comportamiento: ponytail(full) · secure-by-default(full) · commit-hygiene(full) · turtle-protocol(full)
 - Conocimiento: backend-api-design · security-authn-authz · backend-observability
 - Herramienta: gh-cli
 
-### Larry [GEO/SEO]
+### Botticelli [GEO/SEO]
 - Comportamiento: ponytail(full) · secure-by-default(lite) · commit-hygiene(full) · turtle-protocol(full)
 - Conocimiento: geo-seo · ui-ux-pro-max · accessibility-wcag
 - Herramienta: gh-cli
 
 ## Mapa de handoffs
 
-- **Grace** → `sdd` → `arquitectura` → `backend` → `frontend` → `seguridad` → `revision`  _(hub coordinador)_
-- **Margaret** → `arquitectura` → `api` → `backend` → `frontend` → `revision`
-- **Roy** → `backend` → `frontend` → `seguridad` → `revision`
-- **Larry** → `frontend` → `backend` → `arquitectura` → `revision`
-- **Charles** → `seguridad` → `frontend` → `arquitectura`
-- **Vera** → `backend` → `seguridad` → `arquitectura`
-- **Hedy** → `backend` → `frontend` → `arquitectura` → `revision`
-- **Ada** → `backend` → `frontend` → `seguridad`
-- **Linus** → `backend` → `frontend` → `seguridad` → `arquitectura`
+- **Leonardo** → `sdd` → `arquitectura` → `backend` → `frontend` → `seguridad` → `revision`  _(hub coordinador)_
+- **Alberti** → `arquitectura` → `api` → `backend` → `frontend` → `revision`
+- **Pacioli** → `backend` → `frontend` → `seguridad` → `revision`
+- **Botticelli** → `frontend` → `backend` → `arquitectura` → `revision`
+- **Brunelleschi** → `seguridad` → `frontend` → `arquitectura`
+- **Michelangelo** → `backend` → `seguridad` → `arquitectura`
+- **Raphael** → `backend` → `frontend` → `arquitectura` → `revision`
+- **Donatello** → `backend` → `frontend` → `seguridad`
+- **Vasari** → `backend` → `frontend` → `seguridad` → `arquitectura`
 
 ### Flujo SDD de punta a punta
 
 ```
-Grace (orquestador) convoca → Margaret (sdd) especifica + plan IEEE
-  → Ada (arquitectura) diseña límites → Roy (api) fija contratos
-  → Charles (backend) / Vera (frontend) implementan
-  → Hedy (seguridad) gate → Linus (revision) aprueba el PR
+Leonardo (orquestador) convoca → Alberti (sdd) especifica + plan IEEE
+  → Donatello (arquitectura) diseña límites → Pacioli (api) fija contratos
+  → Brunelleschi (backend) / Michelangelo (frontend) implementan
+  → Raphael (seguridad) gate → Vasari (revision) aprueba el PR
 ```
 
 ## Arranque

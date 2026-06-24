@@ -1,22 +1,25 @@
 # Turtle 🐢
 
-**Memoria persistente y coordinación multi-agente para CLIs de IA** — local-first, eficiente en tokens, sin dependencias de runtime.
+**Memoria que olvida lo irrelevante y coordina un equipo de agentes** — local-first, sobre SQLite, sin dependencias de runtime.
 
-Turtle le da a los CLIs de codificación (Claude Code, Cursor, Codex, Gemini CLI, …) **memoria que persiste entre sesiones** y un **bus de coordinación** entre varios agentes en paralelo, a través de un **servidor MCP** y una **CLI** sobre una base **SQLite local**. Un solo binario autocontenido: sin Node, sin servicios, sin claves de API. Tus datos no salen de tu máquina.
+La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para siempre y, con el tiempo, te devuelven contexto viejo e irrelevante. Turtle resuelve otro problema: **memoria que envejece** (caliente → tibio → frío, poda de efímeras, marca lo añejo para revisar) **+ coordinación entre varios agentes en paralelo**. Es un servidor **MCP** + una **CLI** para los CLIs de codificación (Claude Code, Cursor, Codex, Gemini CLI, …), sobre una base **SQLite local**. Un solo binario: sin Node, sin servicios, sin claves de API. Tus datos no salen de tu máquina.
 
 ---
 
-## ¿Qué hace?
+## Lo que lo hace distinto
 
-- **Memoria entre sesiones.** Guardás decisiones/arquitectura/correcciones/convenciones y el agente las recupera en sesiones futuras, en vez de re-derivarlas (y re-pagar los tokens).
-- **Recuperación eficiente en tokens.** Búsqueda en **dos etapas**: primero un índice barato (título + resumen, sin contenido) y solo traés el cuerpo completo de lo que de verdad abrís. (Ver *Ahorro de tokens* abajo.)
-- **Temas evolutivos con historial.** Una memoria con `topic_key` se **actualiza en vez de duplicarse**, y la versión anterior queda archivada: podés consultar "qué sabíamos del tema en tal momento".
-- **Consolidación asistida.** Detecta memorias probablemente duplicadas y te las propone para fusionar (vos decidís; sin IA).
-- **Coordinación multi-agente.** Agentes con rótulo, feed de actividad, y mensajes/relevos (handoffs) por rol o difusión.
-- **Capa de skills + personas.** Trae un bundle embebido de skills y 9 personas (subagentes); ingiere `skills/` y `agents/` y los indexa para cargarlos bajo demanda.
-- **Robusto y portable.** Diagnóstico de salud, export/import JSON, sincronización por fragmentos git, escalonamiento caliente/tibio/frío y supervivencia a la compactación de contexto.
+- 🧠 **Memoria que envejece (lo que casi nadie hace).** Las memorias transitan **caliente → tibio → frío** por antigüedad de acceso; las efímeras se podan; lo añejo se marca como "verificar antes de confiar". En vez de acumular todo plano, la superficie activa se mantiene **relevante y chica**. Si tu dolor es *"mi memoria me devuelve cosas viejas e irrelevantes"*, Turtle lo ataca de raíz, por diseño.
+- 🤝 **Plataforma de orquestación, no solo un cajón de notas.** Bus de mensajes/relevos entre agentes, feed de actividad, y **9 personas** (subagentes) con **modelo configurable por tarea**. Memoria **+ equipo**.
+- 🪶 **Local-first y barato en tokens.** Recuperación en **dos etapas** (índice barato → contenido a demanda; ~−66 %, ver *Ahorro de tokens*), presupuesto de tokens y FTS5 rápido. Sin nube, sin claves.
 
-**Multi-CLI por diseño.** Turtle es un MCP provider-agnóstico: lo consume cualquier CLI de modelo frontera. El modelo lo decide el CLI que uses (Claude Code → Claude, Codex → OpenAI, …); Turtle no maneja claves ni proveedores.
+### Y además
+- **Temas evolutivos con historial** (`topic_key` con upsert + versiones: "qué sabíamos del tema y cuándo").
+- **Consolidación asistida** de duplicados (Turtle propone, el agente decide).
+- **Supervivencia a la compactación** de contexto (checkpoints dedicados).
+- **Capa de skills + personas** embebida en el binario.
+- **Portabilidad**: export/import JSON y sync por fragmentos git (sin merge conflicts).
+
+**Multi-CLI por diseño.** Turtle es un MCP provider-agnóstico: el modelo lo decide el CLI que uses (Claude Code → Claude, Codex → OpenAI, …); Turtle no maneja claves ni proveedores.
 
 ---
 
@@ -184,7 +187,7 @@ turtle actividad                                    # feed de actividad por agen
 
 ```sh
 turtle modelos                     # menú interactivo: elegí persona y modelo
-turtle modelos set ada=opus charles=haiku   # directo
+turtle modelos set donatello=opus brunelleschi=haiku   # directo
 turtle modelos reset               # volver a los modelos por defecto
 ```
 

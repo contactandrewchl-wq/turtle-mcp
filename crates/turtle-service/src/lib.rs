@@ -1646,12 +1646,12 @@ mod tests {
         // Recargar no duplica.
         s.seed_bundled().unwrap();
         assert_eq!(s.count_skills().unwrap(), n as i64);
-        // Una persona embebida (agents/charles/AGENT.md) queda buscable.
+        // Una persona embebida (agents/brunelleschi/AGENT.md) queda buscable.
         assert!(s
-            .search_skills("charles", None, 40)
+            .search_skills("brunelleschi", None, 40)
             .unwrap()
             .iter()
-            .any(|r| r.name.eq_ignore_ascii_case("charles")));
+            .any(|r| r.name.eq_ignore_ascii_case("brunelleschi")));
     }
 
     #[test]
@@ -1662,11 +1662,17 @@ mod tests {
             "esperaba >=8 personas, hubo {}",
             subs.len()
         );
-        let charles = subs.iter().find(|s| s.slug == "charles").expect("charles");
-        assert!(charles.contenido.contains("name: charles"));
-        assert!(charles.contenido.contains("model:"), "lleva campo model");
+        let brunelleschi = subs
+            .iter()
+            .find(|s| s.slug == "brunelleschi")
+            .expect("brunelleschi");
+        assert!(brunelleschi.contenido.contains("name: brunelleschi"));
         assert!(
-            charles.contenido.contains("TURTLE-AGENT"),
+            brunelleschi.contenido.contains("model:"),
+            "lleva campo model"
+        );
+        assert!(
+            brunelleschi.contenido.contains("TURTLE-AGENT"),
             "lleva el marcador"
         );
     }
@@ -1674,19 +1680,22 @@ mod tests {
     #[test]
     fn subagente_respeta_override_de_modelo() {
         let mut overrides = std::collections::BTreeMap::new();
-        overrides.insert("charles".to_string(), "haiku".to_string());
+        overrides.insert("brunelleschi".to_string(), "haiku".to_string());
         let subs = super::subagentes_claude(&overrides);
-        let charles = subs.iter().find(|s| s.slug == "charles").expect("charles");
+        let brunelleschi = subs
+            .iter()
+            .find(|s| s.slug == "brunelleschi")
+            .expect("brunelleschi");
         assert!(
-            charles.contenido.contains("model: haiku"),
+            brunelleschi.contenido.contains("model: haiku"),
             "el override pisa el modelo del frontmatter"
         );
         // Una persona sin override conserva su modelo por defecto del bundle.
         let otra = subs
             .iter()
-            .find(|s| s.slug != "charles")
+            .find(|s| s.slug != "brunelleschi")
             .expect("otra persona");
-        assert!(!otra.contenido.contains("model: haiku") || otra.slug == "charles");
+        assert!(!otra.contenido.contains("model: haiku") || otra.slug == "brunelleschi");
     }
 
     #[test]
@@ -1702,8 +1711,11 @@ mod tests {
     fn personas_traen_modelo_default() {
         let ps = super::personas();
         assert!(ps.len() >= 8, "esperaba >=8 personas, hubo {}", ps.len());
-        let charles = ps.iter().find(|p| p.slug == "charles").expect("charles");
-        assert!(!charles.modelo_default.is_empty());
+        let brunelleschi = ps
+            .iter()
+            .find(|p| p.slug == "brunelleschi")
+            .expect("brunelleschi");
+        assert!(!brunelleschi.modelo_default.is_empty());
     }
 
     #[test]

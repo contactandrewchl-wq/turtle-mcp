@@ -204,7 +204,7 @@ fn listar() -> Result<(), String> {
     Ok(())
 }
 
-/// Fija el modelo de una o más personas: `set ada=opus charles=claude-fable-5`.
+/// Fija el modelo de una o más personas: `set donatello=opus brunelleschi=claude-fable-5`.
 fn set(pares: Vec<String>) -> Result<(), String> {
     let personas = turtle_service::personas();
     let conocidas: std::collections::BTreeSet<&str> =
@@ -280,8 +280,8 @@ mod tests {
     #[test]
     fn round_trip_de_overrides() {
         let mut m = BTreeMap::new();
-        m.insert("ada".to_string(), "opus".to_string());
-        m.insert("charles".to_string(), "claude-fable-5".to_string());
+        m.insert("donatello".to_string(), "opus".to_string());
+        m.insert("brunelleschi".to_string(), "claude-fable-5".to_string());
         let parseado = parsear_overrides(&serializar_overrides(&m));
         assert_eq!(parseado, m);
     }
@@ -290,32 +290,32 @@ mod tests {
     fn parser_ignora_comentarios_vacias_y_mal_formadas() {
         let contenido = "\
 # encabezado de comentario
-ada = opus
+donatello = opus
 
    # otra nota indentada
-charles = haiku
+brunelleschi = haiku
 linea_sin_igual
 =opus
-hedy =
-  vera  =  sonnet
+raphael =
+  michelangelo  =  sonnet
 ";
         let m = parsear_overrides(contenido);
-        assert_eq!(m.get("ada").map(String::as_str), Some("opus"));
-        assert_eq!(m.get("charles").map(String::as_str), Some("haiku"));
+        assert_eq!(m.get("donatello").map(String::as_str), Some("opus"));
+        assert_eq!(m.get("brunelleschi").map(String::as_str), Some("haiku"));
         // Sangría y espacios alrededor del `=` se recortan.
-        assert_eq!(m.get("vera").map(String::as_str), Some("sonnet"));
+        assert_eq!(m.get("michelangelo").map(String::as_str), Some("sonnet"));
         // Mal formadas / vacías no entran.
         assert!(!m.contains_key("linea_sin_igual"));
         assert!(!m.contains_key("")); // "=opus" tiene slug vacío
-        assert!(!m.contains_key("hedy")); // "hedy =" tiene modelo vacío
+        assert!(!m.contains_key("raphael")); // "raphael =" tiene modelo vacío
         assert_eq!(m.len(), 3);
     }
 
     #[test]
     fn parser_tolera_crlf() {
-        let m = parsear_overrides("ada = opus\r\ncharles = sonnet\r\n");
-        assert_eq!(m.get("ada").map(String::as_str), Some("opus"));
-        assert_eq!(m.get("charles").map(String::as_str), Some("sonnet"));
+        let m = parsear_overrides("donatello = opus\r\nbrunelleschi = sonnet\r\n");
+        assert_eq!(m.get("donatello").map(String::as_str), Some("opus"));
+        assert_eq!(m.get("brunelleschi").map(String::as_str), Some("sonnet"));
         assert_eq!(m.len(), 2);
     }
 

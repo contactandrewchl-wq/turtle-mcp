@@ -484,7 +484,7 @@ enum AccionModelos {
     Menu,
     /// Muestra cada persona con su modelo efectivo y el catálogo de modelos disponibles.
     Listar,
-    /// Fija el modelo de una o más personas: turtle modelos set ada=opus charles=claude-fable-5
+    /// Fija el modelo de una o más personas: turtle modelos set donatello=opus brunelleschi=claude-fable-5
     Set {
         /// Pares persona=modelo (sin comillas).
         #[arg(required = true, num_args = 1.., value_name = "PERSONA=MODELO")]

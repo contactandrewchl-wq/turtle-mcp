@@ -180,7 +180,7 @@ fn cuerpo_md(raw: &str) -> String {
 }
 
 /// Modelo declarado por una persona embebida (frontmatter `metadata.model`), buscado por slug.
-/// Lo usa el hook de actividad para mostrar "→ charles (sonnet)".
+/// Lo usa el hook de actividad para mostrar "→ donatello (sonnet)".
 pub fn modelo_persona(slug: &str) -> Option<String> {
     let mut encontrado = None;
     buscar_modelo(&AGENTS_DIR, slug, &mut encontrado);
