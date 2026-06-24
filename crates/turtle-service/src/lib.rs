@@ -397,6 +397,14 @@ impl MemoryService {
         for sk in &bundle {
             self.db.upsert_skill(sk)?;
         }
+        // Reconcilia: quita las entradas de **origen-bundle** (skills/personas del repo) cuyo
+        // `(name, kind)` ya no está en el bundle actual —p. ej. personas renombradas— para no dejar
+        // duplicados huérfanos. Solo toca lo de origen-bundle; nunca las skills del usuario.
+        let presentes: Vec<(String, String)> = bundle
+            .iter()
+            .map(|sk| (sk.name.clone(), sk.kind.as_str().to_string()))
+            .collect();
+        self.db.prune_bundle_orphans(&presentes)?;
         Ok(bundle.len())
     }
 

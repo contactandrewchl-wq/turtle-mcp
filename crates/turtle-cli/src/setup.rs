@@ -293,8 +293,11 @@ fn escribir_subagentes_en(
     overrides: &BTreeMap<String, String>,
 ) -> Result<usize, String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("no se pudo crear {}: {e}", dir.display()))?;
+    let subagentes = turtle_service::subagentes_claude(overrides);
+    let vigentes: std::collections::HashSet<String> =
+        subagentes.iter().map(|sa| sa.slug.clone()).collect();
     let mut n = 0;
-    for sa in turtle_service::subagentes_claude(overrides) {
+    for sa in &subagentes {
         let ruta = dir.join(format!("{}.md", sa.slug));
         if ruta.exists() {
             let actual = std::fs::read_to_string(&ruta).unwrap_or_default();
@@ -304,6 +307,29 @@ fn escribir_subagentes_en(
         }
         escribir(&ruta, &sa.contenido)?;
         n += 1;
+    }
+    // Poda: elimina los subagentes que escribió Turtle (llevan el marcador `TURTLE-AGENT`) cuyo slug
+    // ya no corresponde a una persona vigente (p. ej. renombradas). Nunca toca archivos ajenos.
+    if let Ok(entradas) = std::fs::read_dir(dir) {
+        for entrada in entradas.flatten() {
+            let ruta = entrada.path();
+            if ruta.extension().and_then(|e| e.to_str()) != Some("md") {
+                continue;
+            }
+            let vigente = ruta
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .is_some_and(|slug| vigentes.contains(slug));
+            if vigente {
+                continue;
+            }
+            if std::fs::read_to_string(&ruta)
+                .unwrap_or_default()
+                .contains("TURTLE-AGENT")
+            {
+                let _ = std::fs::remove_file(&ruta);
+            }
+        }
     }
     Ok(n)
 }

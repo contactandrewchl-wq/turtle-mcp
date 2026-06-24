@@ -1204,6 +1204,33 @@ impl Db {
         )
     }
 
+    /// Borra las skills/personas de **origen-bundle** (su `source` apunta a `skills/` o `agents/` del
+    /// repo) cuyo `(name, kind)` ya NO está en `keep` (el bundle actual). Sirve para reconciliar tras
+    /// renombrar o quitar personas, sin dejar huérfanas duplicadas. **No** toca las del usuario
+    /// (source distinto o NULL). El FTS se mantiene solo (trigger `skills_ad`). Devuelve cuántas borró.
+    pub fn prune_bundle_orphans(&self, keep: &[(String, String)]) -> rusqlite::Result<usize> {
+        let conservar: std::collections::HashSet<(String, String)> = keep.iter().cloned().collect();
+        let candidatas: Vec<(String, String, String)> = {
+            let mut stmt = self.conn.prepare(
+                "SELECT id, name, kind FROM skills
+                 WHERE source LIKE 'skills/%' OR source LIKE 'agents/%'",
+            )?;
+            let filas = stmt
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            filas
+        };
+        let mut n = 0;
+        for (id, name, kind) in candidatas {
+            if !conservar.contains(&(name, kind)) {
+                self.conn
+                    .execute("DELETE FROM skills WHERE id=?1", params![id])?;
+                n += 1;
+            }
+        }
+        Ok(n)
+    }
+
     /// Búsqueda de skills en modo índice barato (RF-SKL-03): id, nombre, tipo y cuándo usarla.
     /// Incluye siempre las skills globales (proyecto vacío) además de las del proyecto dado.
     pub fn search_skills(
@@ -2131,6 +2158,57 @@ mod tests {
         let full = db.get_skill(&id1).unwrap().unwrap();
         assert_eq!(full.content, "Contenido nuevo.");
         assert_eq!(full.kind, SkillKind::Tool);
+    }
+
+    #[test]
+    fn prune_bundle_orphans_borra_solo_lo_de_bundle_que_ya_no_esta() {
+        use turtle_core::skill::{NewSkill, SkillKind};
+        let db = Db::open_in_memory().unwrap();
+        let persona = |name: &str, slug: &str| NewSkill {
+            project: String::new(),
+            name: name.to_string(),
+            kind: SkillKind::Agent,
+            when_to_use: Some("rol".into()),
+            content: "persona".into(),
+            tags: None,
+            source: Some(format!("agents/{slug}/AGENT.md")),
+        };
+        // Una persona "vieja" del bundle (renombrada) y una "nueva".
+        db.upsert_skill(&persona("Ada", "ada")).unwrap();
+        db.upsert_skill(&persona("Donatello", "donatello")).unwrap();
+        // Una skill del usuario (source NULL): NUNCA debe podarse.
+        db.upsert_skill(&NewSkill {
+            project: String::new(),
+            name: "mi-skill".into(),
+            kind: SkillKind::Knowledge,
+            when_to_use: None,
+            content: "propia".into(),
+            tags: None,
+            source: None,
+        })
+        .unwrap();
+
+        // El bundle actual solo conserva a Donatello.
+        let n = db
+            .prune_bundle_orphans(&[("Donatello".into(), "agent".into())])
+            .unwrap();
+        assert_eq!(n, 1, "solo Ada (bundle, ausente) debe podarse");
+
+        let nombres: Vec<String> = db
+            .search_skills("persona OR propia OR rol OR skill", None, 50)
+            .unwrap()
+            .into_iter()
+            .map(|r| r.name)
+            .collect();
+        assert!(nombres.contains(&"Donatello".to_string()));
+        assert!(
+            nombres.contains(&"mi-skill".to_string()),
+            "lo del usuario se conserva"
+        );
+        assert!(
+            !nombres.contains(&"Ada".to_string()),
+            "la persona vieja se podó"
+        );
     }
 
     #[test]
