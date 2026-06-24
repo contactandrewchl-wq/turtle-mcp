@@ -1204,17 +1204,16 @@ impl Db {
         )
     }
 
-    /// Borra las skills/personas de **origen-bundle** (su `source` apunta a `skills/` o `agents/` del
-    /// repo) cuyo `(name, kind)` ya NO está en `keep` (el bundle actual). Sirve para reconciliar tras
+    /// Borra las skills/personas de **origen-bundle** (su `source` empieza con `bundle:`, como las
+    /// siembra `seed_bundled`) cuyo `(name, kind)` ya NO está en `keep` (el bundle actual). Reconcilia tras
     /// renombrar o quitar personas, sin dejar huérfanas duplicadas. **No** toca las del usuario
     /// (source distinto o NULL). El FTS se mantiene solo (trigger `skills_ad`). Devuelve cuántas borró.
     pub fn prune_bundle_orphans(&self, keep: &[(String, String)]) -> rusqlite::Result<usize> {
         let conservar: std::collections::HashSet<(String, String)> = keep.iter().cloned().collect();
         let candidatas: Vec<(String, String, String)> = {
-            let mut stmt = self.conn.prepare(
-                "SELECT id, name, kind FROM skills
-                 WHERE source LIKE 'skills/%' OR source LIKE 'agents/%'",
-            )?;
+            let mut stmt = self
+                .conn
+                .prepare("SELECT id, name, kind FROM skills WHERE source LIKE 'bundle:%'")?;
             let filas = stmt
                 .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -2171,7 +2170,7 @@ mod tests {
             when_to_use: Some("rol".into()),
             content: "persona".into(),
             tags: None,
-            source: Some(format!("agents/{slug}/AGENT.md")),
+            source: Some(format!("bundle:agents/{slug}/AGENT.md")),
         };
         // Una persona "vieja" del bundle (renombrada) y una "nueva".
         db.upsert_skill(&persona("Ada", "ada")).unwrap();
