@@ -64,9 +64,7 @@ curl -fsSL https://raw.githubusercontent.com/contactandrewchl-wq/turtle-mcp/main
 irm https://raw.githubusercontent.com/contactandrewchl-wq/turtle-mcp/main/install.ps1 | iex
 ```
 
-Cubre Linux (x86-64 y ARM64, estáticos con musl), macOS (Apple Silicon e Intel) y Windows x86-64. El instalador descarga el binario del último [Release](https://github.com/contactandrewchl-wq/turtle-mcp/releases) y lo deja en el `PATH`.
-
-> El instalador de un comando necesita que haya un **Release publicado** con binarios. Mientras no lo haya, instalá **desde el código** (abajo).
+Cubre Linux (x86-64 y ARM64, estáticos con musl), macOS (Apple Silicon e Intel) y Windows x86-64. El instalador descarga el binario del último [Release](https://github.com/contactandrewchl-wq/turtle-mcp/releases) (v0.1.0) y lo deja en el `PATH`.
 
 ### Desde el código (cualquier SO)
 
