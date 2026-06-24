@@ -46,7 +46,13 @@ Medido en datos reales (12 resultados, ~580 caracteres cada uno; `estimate_token
 
 Turtle es un **binario único**. No necesita Rust ni un compilador para usarse.
 
-### Linux / macOS
+### Homebrew (macOS / Linux)
+
+```sh
+brew install contactandrewchl-wq/tap/turtle
+```
+
+### Linux / macOS (instalador de un comando)
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/contactandrewchl-wq/turtle-mcp/main/install.sh | sh
