@@ -27,7 +27,7 @@ La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para sie
 
 Es el eje de Turtle. El costo de "recordar" en la mayoría de las capas de memoria es alto porque devuelven el **contenido completo** de cada coincidencia en cada búsqueda. Turtle lo evita con tres palancas:
 
-**1. Recuperación en dos etapas (la principal).** `memory_search` devuelve un **índice barato** —id, título, resumen, sin contenido— y solo recuperás el cuerpo completo con `memory_get` de las pocas memorias que abrís.
+**1. Recuperación en dos etapas (la principal).** `memory_search` devuelve un **índice barato** —id, título, resumen, sin contenido— y solo recuperas el cuerpo completo con `memory_get` de las pocas memorias que abres.
 
 Medido en datos reales (12 resultados, ~580 caracteres cada uno; `estimate_tokens = chars/4`):
 
@@ -37,7 +37,7 @@ Medido en datos reales (12 resultados, ~580 caracteres cada uno; `estimate_token
 | Compacto (con extracto) | 1 452 | ~121 |
 | Completo (contenido full) | 1 767 | ~147 |
 
-→ **−66 %** en el primer golpe. En un recall típico (buscás 12, abrís 2): `600 + 2×147 ≈ 894` tok vs `~1 767` de una capa de una sola etapa → **~50 % menos**, y la brecha crece con el corpus.
+→ **−66 %** en el primer golpe. En un recall típico (buscas 12, abres 2): `600 + 2×147 ≈ 894` tok vs `~1 767` de una capa de una sola etapa → **~50 % menos**, y la brecha crece con el corpus.
 
 **2. Perfiles de herramientas.** Cada servidor MCP inyecta sus esquemas de herramientas en el contexto **por turno**. `turtle mcp --perfil minimo` expone solo el núcleo (6 tools) en vez de las 30 → **~70 % menos** de "impuesto" de definiciones por turno. (El default es `completo` porque el protocolo arranca con coordinación.)
 
@@ -81,27 +81,27 @@ cargo install --path crates/turtle-cli --locked
 
 **Compilador de C por plataforma:** macOS → Command Line Tools de Xcode; Linux → `build-essential`; Windows → `stable-x86_64-pc-windows-gnu` (mingw, sin Visual Studio) **o** `-msvc` (Build Tools de VS con el workload de C++).
 
-Verificá: en una terminal nueva, `turtle --version`.
+Verifica: en una terminal nueva, `turtle --version`.
 
 ---
 
 ## Puesta en marcha paso a paso
 
-1. **Instalá** (arriba) y comprobá: `turtle --version`.
-2. **Instalá en tu CLI todo de una** (registra el MCP, inyecta el protocolo, instala las personas
+1. **Instala** (arriba) y comprueba: `turtle --version`.
+2. **Instala en tu CLI todo de una** (registra el MCP, inyecta el protocolo, instala las personas
    y **siembra el bundle embebido —21 skills + 9 personas— en la base**):
 
    ```sh
-   turtle install            # menú: detecta los clientes instalados y elegís
+   turtle install            # menú: detecta los clientes instalados y eliges
    turtle install claude-code   # o directo por nombre
    ```
 
    Soporta `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `gemini-cli` y `codex`.
 
    > `turtle install` = sembrar el bundle **+** `turtle setup`. Si usaste solo `turtle setup` (que
-   > **no** siembra) y `turtle stats` muestra **0 skills**, corré `turtle skills seed`.
-3. **Reiniciá tu CLI** para que levante el servidor MCP.
-4. **Probá la memoria**:
+   > **no** siembra) y `turtle stats` muestra **0 skills**, corre `turtle skills seed`.
+3. **Reinicia tu CLI** para que levante el servidor MCP.
+4. **Prueba la memoria**:
 
    ```sh
    turtle guardar "Usamos rmcp para el MCP" "Turtle expone el servicio por MCP por stdio." -t decision

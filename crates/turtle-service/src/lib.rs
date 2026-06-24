@@ -285,13 +285,14 @@ impl MemoryService {
     }
 
     /// Candidatos a duplicado/conflicto para una memoria recién guardada (RF-CNF-01): memorias del
-    /// mismo proyecto que comparten términos del título, excluyendo la propia. FTS5, sin IA.
+    /// mismo proyecto que comparten términos del título, resumen y contenido, excluyendo la propia.
+    /// FTS5, sin IA.
     pub fn detectar_candidatos(
         &self,
         m: &NewMemory,
         exclude_id: &str,
     ) -> rusqlite::Result<Vec<MemoryIndexRow>> {
-        let query = fts_query_from_task(&m.title);
+        let query = consulta_dup(&m.title, m.summary.as_deref(), Some(&m.content));
         if query.is_empty() {
             return Ok(Vec::new());
         }
@@ -445,7 +446,9 @@ impl MemoryService {
             std::collections::HashSet::new();
         let mut pares = Vec::new();
         for m in &recientes {
-            let query = fts_query_from_task(&m.title);
+            // El índice no trae contenido; usamos título + resumen (el cuerpo de las OTRAS
+            // memorias sí está en el FTS, así que igual pesca solapamientos de contenido).
+            let query = consulta_dup(&m.title, m.summary.as_deref(), None);
             if query.is_empty() {
                 continue;
             }
@@ -1132,6 +1135,24 @@ fn fts_query_from_task(task: &str) -> String {
         .map(|w| format!("\"{}\"", w.to_lowercase()))
         .collect();
     words.join(" OR ")
+}
+
+/// Construye la consulta FTS para detección de duplicados: combina **título + resumen + un prefijo
+/// acotado del contenido**, en vez de solo el título. Da más señal para pescar solapamientos de
+/// *contenido* (el `MATCH` corre contra el índice FTS, que cubre título+contenido+resumen de las
+/// otras memorias), sin convertir la consulta en cientos de términos. Sin IA.
+fn consulta_dup(titulo: &str, resumen: Option<&str>, contenido: Option<&str>) -> String {
+    let mut texto = String::from(titulo);
+    if let Some(s) = resumen {
+        texto.push(' ');
+        texto.push_str(s);
+    }
+    if let Some(c) = contenido {
+        texto.push(' ');
+        // Prefijo acotado del cuerpo: suma señal sin explotar el número de términos OR.
+        texto.extend(c.chars().take(280));
+    }
+    fts_query_from_task(&texto)
 }
 
 /// Convierte texto libre en una consulta FTS5 **segura**: envuelve cada token (separado por

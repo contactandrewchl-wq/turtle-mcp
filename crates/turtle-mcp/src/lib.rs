@@ -316,9 +316,9 @@ impl TurtleMcp {
     #[tool(
         name = "memory_duplicates",
         description = "Propone pares de memorias probablemente duplicadas en un proyecto (por \
-                       solapamiento de títulos vía FTS, sin IA) para que vos las consolides: fusioná \
-                       con memory_save + topic_key, vinculá con relation_add, o borrá la redundante. \
-                       Turtle propone; vos decidís."
+                       solapamiento de título y contenido vía FTS, sin IA) para que las consolides: fusiona \
+                       con memory_save + topic_key, vincula con relation_add, o borra la redundante. \
+                       Turtle propone; tú decides."
     )]
     async fn memory_duplicates(
         &self,
