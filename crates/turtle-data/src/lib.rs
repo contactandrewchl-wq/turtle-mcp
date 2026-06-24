@@ -24,7 +24,7 @@ use turtle_core::skill::{Intensidad, NewSkill, Skill, SkillIndexRow, SkillKind};
 pub use rusqlite;
 
 /// Versión del esquema persistida en `PRAGMA user_version`.
-const SCHEMA_VERSION: i64 = 10;
+const SCHEMA_VERSION: i64 = 11;
 
 /// Conexión a la base de Turtle, con el esquema ya migrado.
 pub struct Db {
@@ -110,6 +110,10 @@ impl Db {
         if version < 10 {
             self.conn.execute_batch(MIGRATION_V10)?;
             version = 10;
+        }
+        if version < 11 {
+            self.conn.execute_batch(MIGRATION_V11)?;
+            version = 11;
         }
         let _ = version;
         self.conn
@@ -270,6 +274,115 @@ impl Db {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(filas)
+    }
+
+    // ─── Semántica opt-in (v11): settings clave/valor + embeddings por memoria ───
+
+    /// Lee un ajuste por clave (tabla `settings`); `None` si no existe.
+    pub fn setting_get(&self, key: &str) -> rusqlite::Result<Option<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM settings WHERE key=?1")?;
+        let mut filas = stmt.query(params![key])?;
+        match filas.next()? {
+            Some(r) => Ok(Some(r.get(0)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Fija (upsert) un ajuste por clave.
+    pub fn setting_set(&self, key: &str, value: &str) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT INTO settings(key, value) VALUES(?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            params![key, value],
+        )?;
+        Ok(())
+    }
+
+    /// Guarda (upsert) el embedding de una memoria (BLOB f32 little-endian).
+    pub fn upsert_embedding(
+        &self,
+        memory_id: &str,
+        model: &str,
+        vec: &[f32],
+    ) -> rusqlite::Result<()> {
+        let blob: Vec<u8> = vec.iter().flat_map(|f| f.to_le_bytes()).collect();
+        self.conn.execute(
+            "INSERT INTO memory_embeddings(memory_id, model, dim, vec, updated_at)
+             VALUES(?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(memory_id) DO UPDATE SET model=excluded.model, dim=excluded.dim,
+                 vec=excluded.vec, updated_at=excluded.updated_at",
+            params![memory_id, model, vec.len() as i64, blob, now_ms()],
+        )?;
+        Ok(())
+    }
+
+    /// `(memory_id, vector)` de las memorias del alcance de búsqueda (proyecto + personales), para el
+    /// KNN coseno en Rust. `project = None` no filtra por proyecto.
+    pub fn embeddings_for_scope(
+        &self,
+        project: Option<&str>,
+    ) -> rusqlite::Result<Vec<(String, Vec<f32>)>> {
+        let crudas: Vec<(String, Vec<u8>)> = match project {
+            Some(p) => {
+                let mut stmt = self.conn.prepare(
+                    "SELECT e.memory_id, e.vec FROM memory_embeddings e
+                     JOIN memories m ON m.id = e.memory_id
+                     WHERE m.project=?1 OR m.scope='personal'",
+                )?;
+                let filas = stmt
+                    .query_map(params![p], |r| Ok((r.get(0)?, r.get(1)?)))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                filas
+            }
+            None => {
+                let mut stmt = self
+                    .conn
+                    .prepare("SELECT memory_id, vec FROM memory_embeddings")?;
+                let filas = stmt
+                    .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                filas
+            }
+        };
+        Ok(crudas
+            .into_iter()
+            .map(|(id, b)| {
+                let v = b
+                    .chunks_exact(4)
+                    .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .collect();
+                (id, v)
+            })
+            .collect())
+    }
+
+    /// `(id, título + contenido)` de memorias **sin** embedding, para el backfill. Acotado por `limit`.
+    pub fn memories_missing_embedding(
+        &self,
+        limit: u32,
+    ) -> rusqlite::Result<Vec<(String, String)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT m.id, m.title || ' ' || m.content FROM memories m
+             LEFT JOIN memory_embeddings e ON e.memory_id = m.id
+             WHERE e.memory_id IS NULL LIMIT ?1",
+        )?;
+        let filas = stmt
+            .query_map(params![limit], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(filas)
+    }
+
+    /// `(memorias con embedding, total de memorias)`. Para `turtle semantic status`.
+    pub fn embedding_counts(&self) -> rusqlite::Result<(i64, i64)> {
+        let con: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM memory_embeddings", [], |r| r.get(0))?;
+        let total: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM memories", [], |r| r.get(0))?;
+        Ok((con, total))
     }
 
     /// Recupera el contenido completo de una memoria por id (segunda etapa, RF-REC-02).
@@ -1556,6 +1669,23 @@ CREATE TABLE memory_versions (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX idx_memver_memory ON memory_versions(memory_id, valid_to);
+"#;
+
+/// Migración v11: semántica **opt-in**. `settings` (clave/valor) guarda si la semántica está
+/// prendida y con qué modelo; `memory_embeddings` guarda el vector por memoria (BLOB f32 LE). Ambas
+/// vacías/sin uso salvo que el usuario corra `turtle semantic on`: no afectan a quien usa solo FTS.
+const MIGRATION_V11: &str = r#"
+CREATE TABLE settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+CREATE TABLE memory_embeddings (
+  memory_id  TEXT PRIMARY KEY REFERENCES memories(id) ON DELETE CASCADE,
+  model      TEXT NOT NULL,
+  dim        INTEGER NOT NULL,
+  vec        BLOB NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 "#;
 
 #[cfg(test)]
