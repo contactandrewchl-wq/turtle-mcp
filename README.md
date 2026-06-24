@@ -18,6 +18,7 @@ La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para sie
 - **Supervivencia a la compactación** de contexto (checkpoints dedicados).
 - **Capa de skills + personas** embebida en el binario.
 - **Portabilidad**: export/import JSON y sync por fragmentos git (sin merge conflicts).
+- **Búsqueda semántica opt-in** vía Ollama local (`turtle semantic on`); por defecto FTS, sin dependencias.
 
 **Multi-CLI por diseño.** Turtle es un MCP provider-agnóstico: el modelo lo decide el CLI que uses (Claude Code → Claude, Codex → OpenAI, …); Turtle no maneja claves ni proveedores.
 
@@ -42,6 +43,25 @@ Medido en datos reales (12 resultados, ~580 caracteres cada uno; `estimate_token
 **2. Perfiles de herramientas.** Cada servidor MCP inyecta sus esquemas de herramientas en el contexto **por turno**. `turtle mcp --perfil minimo` expone solo el núcleo (6 tools) en vez de las 30 → **~70 % menos** de "impuesto" de definiciones por turno. (El default es `completo` porque el protocolo arranca con coordinación.)
 
 **3. Escalonamiento + presupuesto.** Las memorias transitan caliente → tibio → frío por antigüedad de acceso, manteniendo chica la superficie activa; la búsqueda **recorta por presupuesto de tokens** y nunca te llena el contexto.
+
+---
+
+## Búsqueda semántica (opt-in)
+
+Por defecto Turtle busca con **FTS5** (rápido, local, cero dependencias) — alcanza para la mayoría de los casos. Si además querés **recall semántico** (encontrar memorias por significado, no solo por palabras), se prende con un comando:
+
+```sh
+turtle semantic on
+```
+
+Esto verifica que **[Ollama](https://ollama.com)** esté corriendo, descarga el modelo de embeddings (`nomic-embed-text`, ~270 MB, una sola vez) y genera los embeddings de tus memorias. A partir de ahí, la búsqueda **combina FTS + similitud semántica** (fusión RRF). El binario **no** crece: el modelo vive en Ollama, no adentro de Turtle.
+
+```sh
+turtle semantic status   # prendida/apagada, modelo, si Ollama responde, memorias embebidas
+turtle semantic off      # vuelve a FTS (no borra los embeddings ya calculados)
+```
+
+**Degradación elegante:** si Ollama no está corriendo, la búsqueda sigue funcionando con FTS — nunca se rompe. Y quien no prenda la semántica no necesita Ollama ni ninguna dependencia extra.
 
 ---
 
