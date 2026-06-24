@@ -12,13 +12,14 @@ use std::time::Duration;
 /// Modelo de embeddings por defecto (chico y bueno; ~270 MB en Ollama).
 pub const MODELO_POR_DEFECTO: &str = "nomic-embed-text";
 
-/// Host de Ollama; configurable con `$OLLAMA_HOST`. Por defecto el local.
+/// Host de Ollama; configurable con `$OLLAMA_HOST`. Por defecto **IPv4** `127.0.0.1` (no `localhost`):
+/// en Windows `localhost` suele resolver a IPv6 `::1`, donde Ollama no escucha, y la conexión falla.
 pub fn ollama_host() -> String {
     std::env::var("OLLAMA_HOST")
         .ok()
         .filter(|s| !s.trim().is_empty())
         .map(|s| s.trim_end_matches('/').to_string())
-        .unwrap_or_else(|| "http://localhost:11434".to_string())
+        .unwrap_or_else(|| "http://127.0.0.1:11434".to_string())
 }
 
 /// Falla al generar o pedir un embedding. Todas son no-fatales: la búsqueda degrada a FTS.
@@ -158,7 +159,7 @@ mod tests {
     fn host_por_defecto_local() {
         // Sin $OLLAMA_HOST seteado en el entorno de test.
         if std::env::var("OLLAMA_HOST").is_err() {
-            assert_eq!(ollama_host(), "http://localhost:11434");
+            assert_eq!(ollama_host(), "http://127.0.0.1:11434");
         }
     }
 }
