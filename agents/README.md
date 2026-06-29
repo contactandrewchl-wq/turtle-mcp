@@ -114,5 +114,6 @@ Importar **personas o skills de terceros es contenido NO confiable**. Una defini
 | Alberti | SDD | `sdd` | [./alberti/AGENT.md](./alberti/AGENT.md) |
 | Pacioli | API Design | `api` | [./pacioli/AGENT.md](./pacioli/AGENT.md) |
 | Botticelli | GEO/SEO | `seo` | [./botticelli/AGENT.md](./botticelli/AGENT.md) |
+| Galileo | Consejo | `consejo` | [./galileo/AGENT.md](./galileo/AGENT.md) |
 
 Índice completo del roster: [./roster.md](./roster.md).

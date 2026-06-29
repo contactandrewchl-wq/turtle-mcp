@@ -7,8 +7,9 @@
 mod scan;
 mod seeds;
 pub use seeds::{
-    modelo_persona, modelo_valido, personas, subagentes_claude, ModeloInfo, Persona,
-    SubagenteClaude, MODELOS_CLAUDE,
+    fase_existe, modelo_persona, modelo_valido, perfil_por_nombre, perfil_resolver, personas,
+    rango_modelo, slugs_flujo, subagentes_claude, Fase, ModeloInfo, Perfil, Persona,
+    SubagenteClaude, TierFase, FASES, MODELOS_CLAUDE, PERFILES,
 };
 
 use std::borrow::Cow;

@@ -13,6 +13,7 @@ Personas con nombre. El **rótulo** es la clave de ruteo de sesiones, mensajerí
 | [**Alberti [SDD]**](alberti/AGENT.md) | SDD | `sdd` | `alberti` | opus | Rigor de ingeniería: sin requisitos verificables y trazables no hay plan, y sin plan no hay código. |
 | [**Pacioli [API Design]**](pacioli/AGENT.md) | API Design | `api` | `pacioli` | opus | El contrato es la fuente de verdad: estable, versionado y orientado a recursos antes de implementar. |
 | [**Botticelli [GEO/SEO]**](botticelli/AGENT.md) | GEO/SEO | `seo` | `botticelli` | opus | Mide la visibilidad, no la opina: contenido citable, marcado válido y crawlers bien configurados. |
+| [**Galileo [Consejo]**](galileo/AGENT.md) | Consejo | `consejo` | `galileo` | opus | Desconfía de la primera respuesta; fuerza el disenso entre cinco voces, las revisa en anónimo y firma un veredicto con su próximo paso. |
 
 ## Cargas de skills
 
@@ -61,6 +62,11 @@ Personas con nombre. El **rótulo** es la clave de ruteo de sesiones, mensajerí
 - Conocimiento: geo-seo · ui-ux-pro-max · accessibility-wcag
 - Herramienta: gh-cli
 
+### Galileo [Consejo]
+- Comportamiento: turtle-protocol(full) · ponytail(full) · secure-by-default(lite) · commit-hygiene(full)
+- Conocimiento: llm-council · agent-orchestration
+- Herramienta: gh-cli
+
 ## Mapa de handoffs
 
 - **Leonardo** → `sdd` → `arquitectura` → `backend` → `frontend` → `seguridad` → `revision`  _(hub coordinador)_
@@ -72,6 +78,7 @@ Personas con nombre. El **rótulo** es la clave de ruteo de sesiones, mensajerí
 - **Raphael** → `backend` → `frontend` → `arquitectura` → `revision`
 - **Donatello** → `backend` → `frontend` → `seguridad`
 - **Vasari** → `backend` → `frontend` → `seguridad` → `arquitectura`
+- **Galileo** → `arquitectura` → `sdd` → `revision`  _(consejo: delibera y releva, no implementa)_
 
 ### Flujo SDD de punta a punta
 

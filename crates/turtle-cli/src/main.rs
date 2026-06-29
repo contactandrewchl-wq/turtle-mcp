@@ -43,6 +43,7 @@ const MAX_REVISION: u32 = 100;
 
 mod hook;
 mod modelos;
+mod perfil;
 mod setup;
 mod statusline;
 mod sync;
@@ -255,6 +256,11 @@ enum Comando {
     Modelos {
         #[command(subcommand)]
         accion: Option<AccionModelos>,
+    },
+    /// Aplica un perfil de modelo por fase al flujo SDD (cheap/balanced/premium). Sin acción: muestra.
+    Perfil {
+        #[command(subcommand)]
+        accion: Option<AccionPerfil>,
     },
     /// Búsqueda semántica opt-in vía Ollama (local): `on` la prende (baja el modelo y rellena los
     /// embeddings), `off` vuelve a FTS, `status` muestra el estado. Por defecto Turtle usa FTS.
@@ -581,6 +587,28 @@ enum AccionModelos {
 }
 
 #[derive(Subcommand)]
+enum AccionPerfil {
+    /// Perfil cheap: todo haiku (el modelo más barato de la subscripción).
+    Cheap,
+    /// Perfil balanced: strong→opus, mid→sonnet, cheap→haiku (equilibrio de razonamiento por fase).
+    Balanced,
+    /// Perfil premium: todo opus (razonamiento máximo en cada fase).
+    Premium,
+    /// Fija el modelo de una fase y re-resuelve: turtle perfil fase design sonnet
+    Fase {
+        /// Fase del flujo SDD: init, explore, propose, spec, design, contracts, tasks, apply,
+        /// verify, judge o archive.
+        fase: String,
+        /// Modelo a asignar (alias o id del catálogo, ver `turtle modelos`).
+        modelo: String,
+    },
+    /// Muestra el perfil activo y el mapa efectivo (igual que `turtle perfil` a secas).
+    Mostrar,
+    /// Borra la receta de perfil y vuelve a los modelos por defecto del flujo SDD.
+    Reset,
+}
+
+#[derive(Subcommand)]
 enum AccionSemantic {
     /// Prende la semántica: verifica Ollama, baja el modelo si falta y rellena los embeddings.
     On {
@@ -645,8 +673,9 @@ fn ejecutar(cli: Cli) -> Result<(), String> {
         Comando::Setup { agente, config } => setup::ejecutar(agente, config),
         Comando::Uninstall { agente, config } => setup::desinstalar(agente, config),
         Comando::Statusline => statusline::ejecutar(),
-        // `modelos` solo toca ~/.turtle y ~/.claude/agents; no necesita la base de Turtle.
+        // `modelos` y `perfil` solo tocan ~/.turtle y ~/.claude/agents; no necesitan la base.
         Comando::Modelos { accion } => modelos::ejecutar(accion),
+        Comando::Perfil { accion } => perfil::ejecutar(accion),
         // Apagado opcional del feed de actividad (hot path del hook PreToolUse): si el usuario
         // setea $TURTLE_NO_ACTIVITY, salimos sin abrir siquiera la base. Así el costo del hook
         // baja al piso del proceso para quien no quiera el feed.
@@ -1237,8 +1266,11 @@ fn despachar(comando: Comando, servicio: MemoryService) -> Result<(), String> {
         Comando::Setup { .. }
         | Comando::Uninstall { .. }
         | Comando::Statusline
-        | Comando::Modelos { .. } => {
-            unreachable!("setup, uninstall, statusline y modelos se manejan sin abrir la base")
+        | Comando::Modelos { .. }
+        | Comando::Perfil { .. } => {
+            unreachable!(
+                "setup, uninstall, statusline, modelos y perfil se manejan sin abrir la base"
+            )
         }
     }
     Ok(())
