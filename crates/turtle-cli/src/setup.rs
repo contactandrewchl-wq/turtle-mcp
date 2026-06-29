@@ -55,7 +55,7 @@ const CLIENTES: &[Cliente] = &[
         formato: Formato::JsonMcpServers,
     },
     Cliente {
-        id: "gemini-cli",
+        id: "gemini",
         nombre: "Gemini CLI",
         formato: Formato::JsonMcpServers,
     },
@@ -186,7 +186,7 @@ fn ruta_config(id: &str) -> Option<PathBuf> {
             .join(".codeium")
             .join("windsurf")
             .join("mcp_config.json"),
-        "gemini-cli" => home.join(".gemini").join("settings.json"),
+        "gemini" => home.join(".gemini").join("settings.json"),
         "codex" => home.join(".codex").join("config.toml"),
         // OpenCode usa `~/.config/opencode/` literal en macOS, Linux y Windows nativo (no `%APPDATA%`),
         // así que se arma desde el home y no desde `config_dir()`. Ver https://opencode.ai/docs/config/.
@@ -195,7 +195,7 @@ fn ruta_config(id: &str) -> Option<PathBuf> {
     })
 }
 
-// ─── Inyección del protocolo en las instrucciones del cliente (estilo gentle-ai) ───
+// ─── Inyección del protocolo en las instrucciones del cliente ───
 
 /// Marcadores del bloque inyectado: permiten reemplazarlo sin duplicar ni pisar lo demás.
 const MARCA_INI: &str =
@@ -204,12 +204,15 @@ const MARCA_FIN: &str = "<!-- TURTLE:END -->";
 
 /// Archivo de instrucciones globales donde inyectar el protocolo, por cliente. `None` = no soportado
 /// aún. Codex lee `~/.codex/AGENTS.md` como instrucciones globales (o `AGENTS.override.md` si existe;
-/// inyectamos en `AGENTS.md`, el caso por defecto).
+/// inyectamos en `AGENTS.md`, el caso por defecto). Gemini CLI lee `~/.gemini/GEMINI.md` como contexto
+/// global (carga jerárquica global→workspace→JIT; el nombre se puede cambiar con `context.fileName`,
+/// pero `GEMINI.md` es el valor por defecto).
 fn ruta_instrucciones(id: &str) -> Option<PathBuf> {
     let home = directories::BaseDirs::new()?.home_dir().to_path_buf();
     match id {
         "claude-code" => Some(home.join(".claude").join("CLAUDE.md")),
         "codex" => Some(home.join(".codex").join("AGENTS.md")),
+        "gemini" => Some(home.join(".gemini").join("GEMINI.md")),
         // OpenCode lee reglas globales de `~/.config/opencode/AGENTS.md`. Ver https://opencode.ai/docs/rules/.
         "opencode" => Some(home.join(".config").join("opencode").join("AGENTS.md")),
         _ => None,
@@ -1081,6 +1084,80 @@ mod tests {
         let t2 = std::fs::read_to_string(&ruta2).unwrap();
         assert!(t2.contains("Delegación a sub-agentes"));
         let _ = std::fs::remove_file(&ruta2);
+    }
+
+    #[test]
+    fn gemini_apunta_a_settings_y_a_gemini_md() {
+        // El MCP va a ~/.gemini/settings.json (objeto mcpServers, formato JSON).
+        let cfg = ruta_config("gemini").unwrap();
+        assert!(
+            cfg.ends_with("settings.json"),
+            "config de Gemini debe ser settings.json, fue: {}",
+            cfg.display()
+        );
+        assert!(
+            cfg.parent().unwrap().ends_with(".gemini"),
+            "settings.json de Gemini va en ~/.gemini"
+        );
+        assert!(matches!(
+            buscar_cliente("gemini").unwrap().formato,
+            Formato::JsonMcpServers
+        ));
+        // Las instrucciones globales van a ~/.gemini/GEMINI.md.
+        assert!(ruta_instrucciones("gemini").unwrap().ends_with("GEMINI.md"));
+    }
+
+    #[test]
+    fn protocolo_gemini_es_core_sin_delegacion_de_subagentes() {
+        // Gemini CLI usa ~/.gemini/GEMINI.md como contexto global.
+        assert!(ruta_instrucciones("gemini").unwrap().ends_with("GEMINI.md"));
+
+        // Gemini (single-agent, como Codex/OpenCode): recibe el núcleo del MCP, NO la sección
+        // Claude-específica de delegación a subagentes.
+        let ruta = ruta_temp("GEMINI.md");
+        inyectar_protocolo(&ruta, "gemini").unwrap();
+        let t = std::fs::read_to_string(&ruta).unwrap();
+        assert!(t.contains("session_start"), "lleva el núcleo del MCP");
+        assert!(
+            !t.contains("Delegación a sub-agentes"),
+            "Gemini no lleva la sección de subagentes"
+        );
+        assert!(!t.contains("tool Task"), "Gemini no tiene el tool Task");
+        let _ = std::fs::remove_file(&ruta);
+    }
+
+    #[test]
+    fn inyecta_protocolo_gemini_preserva_y_es_idempotente() {
+        let ruta = ruta_temp("GEMINI_idem.md");
+        std::fs::write(&ruta, "# Mi GEMINI\n\ncontenido propio del usuario\n").unwrap();
+
+        inyectar_protocolo(&ruta, "gemini").unwrap();
+        let t1 = std::fs::read_to_string(&ruta).unwrap();
+        assert!(t1.contains("contenido propio del usuario"), "preserva lo ajeno");
+        assert!(t1.contains("session_start"), "inyecta el protocolo");
+        assert_eq!(t1.matches(MARCA_INI).count(), 1);
+        assert_eq!(t1.matches(MARCA_FIN).count(), 1);
+
+        // Correr dos veces no duplica el bloque.
+        inyectar_protocolo(&ruta, "gemini").unwrap();
+        let t2 = std::fs::read_to_string(&ruta).unwrap();
+        assert_eq!(t2.matches(MARCA_INI).count(), 1, "no duplica el bloque");
+        assert!(t2.contains("contenido propio del usuario"));
+        let _ = std::fs::remove_file(&ruta);
+    }
+
+    #[test]
+    fn rollback_quita_protocolo_gemini_preservando_lo_demas() {
+        let ruta = ruta_temp("GEMINI_rb.md");
+        std::fs::write(&ruta, "# Mío\n\ntexto propio del usuario\n").unwrap();
+        inyectar_protocolo(&ruta, "gemini").unwrap();
+        assert!(quitar_protocolo(&ruta).unwrap());
+        let t = std::fs::read_to_string(&ruta).unwrap();
+        assert!(!t.contains(MARCA_INI), "quitó el bloque");
+        assert!(t.contains("texto propio del usuario"), "preservó lo demás");
+        // Quitar de nuevo: ya no hay bloque.
+        assert!(!quitar_protocolo(&ruta).unwrap());
+        let _ = std::fs::remove_file(&ruta);
     }
 
     #[test]

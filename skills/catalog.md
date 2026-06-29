@@ -53,6 +53,7 @@ estos metadatos; el contenido completo se carga con `skill_get(<nombre>)`
 |---|---|---|
 | [`sdd-flow`](sdd-flow/SKILL.md) | propia (adapta `spec-driven-development-orchestrator`) | Desarrollo dirigido por especificación anclado a IEEE (29148, 1016, 1012, 29119, 12207): especificar → diseñar → planificar → implementar → verificar, con trazabilidad y método I/A/D/P. |
 | [`agent-orchestration`](agent-orchestration/SKILL.md) | propia (adapta `maestro-orchestrator` / Agent Mail, sin spawning) | Coordinar varias personas sobre el bus asíncrono de Turtle (mensajería, bandeja, actividad, relaciones). Respeta el límite del SRS: nunca lanza ni controla procesos. |
+| [`llm-council`](llm-council/SKILL.md) | adapta `tenfoldmarc/llm-council-skill` (MIT), sin spawning | Consejo deliberativo: somete una decisión a cinco voces adversariales que discuten, se revisan en anónimo y entregan un veredicto trazable (memoria `decision`). Contrarresta la complacencia; nunca lanza procesos. |
 
 ## Conocimiento — growth / SEO (bajo demanda)
 

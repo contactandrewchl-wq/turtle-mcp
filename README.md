@@ -9,7 +9,7 @@ La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para sie
 ## Lo que lo hace distinto
 
 - 🧠 **Memoria que envejece (lo que casi nadie hace).** Las memorias transitan **caliente → tibio → frío** por antigüedad de acceso; las efímeras se podan; lo añejo se marca como "verificar antes de confiar". En vez de acumular todo plano, la superficie activa se mantiene **relevante y chica**. Si tu dolor es *"mi memoria me devuelve cosas viejas e irrelevantes"*, Turtle lo ataca de raíz, por diseño.
-- 🤝 **Plataforma de orquestación, no solo un cajón de notas.** Bus de mensajes/relevos entre agentes, feed de actividad, y **9 personas** (subagentes) con **modelo configurable por tarea**. Memoria **+ equipo**.
+- 🤝 **Plataforma de orquestación, no solo un cajón de notas.** Bus de mensajes/relevos entre agentes, feed de actividad, y **10 personas** (subagentes) con **modelo configurable por tarea**. Memoria **+ equipo**.
 - 🪶 **Local-first y barato en tokens.** Recuperación en **dos etapas** (índice barato → contenido a demanda; ~−66 %, ver *Ahorro de tokens*), presupuesto de tokens y FTS5 rápido. Sin nube, sin claves.
 
 ### Y además
@@ -21,6 +21,16 @@ La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para sie
 - **Búsqueda semántica opt-in** vía Ollama local (`turtle semantic on`); por defecto FTS, sin dependencias.
 
 **Multi-CLI por diseño.** Turtle es un MCP provider-agnóstico: el modelo lo decide el CLI que uses (Claude Code → Claude, Codex → OpenAI, …); Turtle no maneja claves ni proveedores.
+
+---
+
+## Novedades — v0.1.8
+
+- **Consejo deliberativo (Galileo).** Nueva persona `consejo` + skill `llm-council`: somete una decisión de peso a **cinco voces adversariales** que discuten, se revisan en anónimo y entregan un **veredicto trazable** con su próximo paso — sin spawnear procesos (perspectivas o personas convocadas por el bus).
+- **`turtle perfil` — modelo por fase.** `turtle perfil <cheap|balanced|premium>` (con override por fase) ajusta el modelo de cada persona según la fase del flujo SDD, dentro de tu subscripción y **sin claves de API**.
+- **Orquestación por capas.** El orquestador suma **triggers de delegación**, revisión **en paralelo** con cuatro lentes (riesgo · fiabilidad · resiliencia · legibilidad) y tres niveles de rigor (el más alto convoca al consejo).
+- **SDD por fases nombradas** sobre el roster, con handoff entre fases por memoria.
+- **Adaptador Gemini CLI.** `turtle setup gemini` registra el MCP en `~/.gemini/settings.json` e inyecta el protocolo en `~/.gemini/GEMINI.md`.
 
 ---
 
@@ -109,14 +119,14 @@ Verifica: en una terminal nueva, `turtle --version`.
 
 1. **Instala** (arriba) y comprueba: `turtle --version`.
 2. **Instala en tu CLI todo de una** (registra el MCP, inyecta el protocolo, instala las personas
-   y **siembra el bundle embebido —21 skills + 9 personas— en la base**):
+   y **siembra el bundle embebido —22 skills + 10 personas— en la base**):
 
    ```sh
    turtle install            # menú: detecta los clientes instalados y eliges
    turtle install claude-code   # o directo por nombre
    ```
 
-   Soporta `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `gemini-cli`, `codex` y `opencode`.
+   Soporta `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `gemini`, `codex` y `opencode`.
 
    > `turtle install` = sembrar el bundle **+** `turtle setup`. Si usaste solo `turtle setup` (que
    > **no** siembra) y `turtle stats` muestra **0 skills**, corre `turtle skills seed`.
@@ -142,7 +152,7 @@ Verifica: en una terminal nueva, `turtle --version`.
   { "command": "turtle", "args": ["mcp"] }
   ```
 - Inyecta el **protocolo de uso** de Turtle en las instrucciones del cliente (en Claude Code, `~/.claude/CLAUDE.md`; en Codex, `~/.codex/AGENTS.md`; en OpenCode, `~/.config/opencode/AGENTS.md`), en un bloque marcado y reemplazable.
-- En Claude Code, además instala las **9 personas** como subagentes (`~/.claude/agents/`) y cablea los hooks de sesión.
+- En Claude Code, además instala las **10 personas** como subagentes (`~/.claude/agents/`) y cablea los hooks de sesión.
 
 **Dónde viven las cosas:**
 
@@ -216,7 +226,7 @@ turtle modelos reset               # volver a los modelos por defecto
 
 ```sh
 turtle skills importar             # ingiere skills/ y agents/ (proyecto + ~/.claude)
-turtle skills seed                 # carga el bundle embebido (21 skills + 9 personas)
+turtle skills seed                 # carga el bundle embebido (22 skills + 10 personas)
 turtle doctor --reparar            # repara índices FTS desincronizados
 turtle exportar -p proy --salida backup.json   # respaldo JSON abierto; importar no duplica
 turtle sync exportar .turtle/mem   # un <id>.json por memoria (versionable en git sin conflictos)

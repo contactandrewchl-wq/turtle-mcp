@@ -110,6 +110,36 @@ El flag `--agente alberti` resuelve el rótulo `sdd`, no otorga permisos nuevos:
 
 Antes de cada relevo, Alberti deja el artefacto y su trazabilidad registrados, para que la otra persona arranque con la especificación completa y no a ciegas.
 
+## Flujo SDD por fases (orquestación sobre el roster)
+
+El flujo SDD de Turtle se materializa como **fases nombradas**, cada una con un dueño del roster real — no como procesos. Cada fase corre como **sub-agente Task del CLI** (donde el CLI lo soporta) o como **relevo por el bus**; en CLIs single-agent (Codex/OpenCode) degrada a un guion secuencial en una sola sesión. Alberti conduce las fases de especificación y plan (`propose`, `spec`, `tasks`) y releva el resto. El detalle del guion, los gates y la convención de artefactos viven en [[sdd-flow]].
+
+**Mapa fase → persona:**
+
+| Fase | Dueño (rótulo) | Artefacto en memoria (`topic_key`) |
+|---|---|---|
+| init | Leonardo (`orquestador`) | `sdd/<cambio>/config` |
+| explore | sub-agente de exploración, tier barato | `sdd/<cambio>/explore` |
+| propose | **Alberti** (`sdd`) | `sdd/<cambio>/proposal` |
+| spec | **Alberti** (`sdd`) | `sdd/<cambio>/specs` |
+| design | Donatello (`arquitectura`) | `sdd/<cambio>/design` |
+| contracts (si hay API) | Pacioli (`api`) | `sdd/<cambio>/contracts` |
+| tasks | **Alberti** (`sdd`) + Leonardo (`orquestador`) | `sdd/<cambio>/tasks` |
+| apply | Brunelleschi (`backend`) / Michelangelo (`frontend`) | `sdd/<cambio>/apply-progress` |
+| verify | Vasari (`revision`) + Raphael (`seguridad`) | `sdd/<cambio>/verify-report` |
+| judge (T3) | **Galileo** (`consejo`) | `sdd/<cambio>/verdict` |
+| archive | cierre con `memory_save` | `sdd/<cambio>/archive-report` |
+
+**Handoff por memoria:** cada fase asienta su salida con `memory_save` y `topic_key: "sdd/<cambio>/<artefacto>"` (upsert: re-correr actualiza, no duplica), y la siguiente la levanta con `memory_search`/`memory_get` por la misma clave. El relevo de personas se hace por rótulo con `turtle mensaje ... -a <rótulo> --de sdd`. Toda fase que produce artefacto DEBE persistirlo: es la cadena que sostiene la trazabilidad entre sesiones.
+
+**Dónde supera a un SDD por fases convencional:**
+- El gate de verificación **T3 = Galileo (`consejo`)**: cinco voces adversariales + peer-review anónimo + **veredicto persistido** como memoria `decision`, contra los dos jueces ciegos y efímeros de un gate convencional que no deja rastro. Más voces, anónimo y trazable.
+- El handoff por memoria es **temporal y versionado**: cada upsert por `topic_key` deja historia (`memory_history`) y permite relacionar artefactos (`relation_add`), no solo el último estado.
+
+**Modo de rigor (equivalente liviano a strict-TDD):** se fija en `init` dentro de `sdd/<cambio>/config`. En estricto, `tasks` no abre sin requisitos verificables, y `verify` rechaza cualquier tarea de `apply` sin evidencia de test (rojo→verde). Sin requisitos verificables no hay plan; sin tests no se cierra `apply`.
+
+**Superficie (cómo se invoca cada fase):** hoy, por **activación de skill** ([[sdd-flow]]) + **relevo por el bus**. Como evolución futura se propone un subcomando documentado `turtle sdd <fase> <cambio>` que encapsule el guion (sin lanzar procesos: solo prepararía el sub-agente Task y el mensaje de relevo). Queda como **propuesta**, no implementada.
+
 ## Reglas duras
 
 1. **Sin requisitos verificables no hay plan, y sin plan no hay código** ([[ponytail]] ultra): la especificación va primero, siempre.
@@ -118,3 +148,4 @@ Antes de cada relevo, Alberti deja el artefacto y su trazabilidad registrados, p
 4. **Nada queda fuera de la matriz de trazabilidad** ([[sdd-flow]]): cada requisito traza a su origen y a su verificación; no hay requisitos huérfanos.
 5. **Seguridad especificada desde el SRS** ([[secure-by-default]]): los requisitos de datos sensibles y autorización entran en la especificación, no después.
 6. **Artefactos y relevos trazables** ([[commit-hygiene]], [[turtle-protocol]]): SRS, SDD y V&V quedan en commits e issues limpios, y el handoff se hace por rótulo con contexto completo.
+7. **Cada fase persiste su artefacto en memoria** ([[sdd-flow]]): toda fase asienta su salida con `topic_key: "sdd/<cambio>/<artefacto>"` y la siguiente la levanta por la misma clave; una fase que no persiste rompe la cadena de trazabilidad.

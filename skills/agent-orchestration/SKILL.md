@@ -37,6 +37,12 @@ Está prohibido en esta skill:
 
 Todo lo que sigue se apoya solo en mensajes asíncronos persistidos en la base.
 
+### Matiz ratificado: delegar en un sub-agente del CLI ≠ spawnear un proceso
+
+La prohibición de arriba es sobre **procesos del SO que Turtle cree o controle**. Es distinto de **delegar en un sub-agente nativo del CLI** (p. ej. la herramienta Task de Claude Code): a ese sub-agente lo lanza el **runtime del cliente**, no Turtle, y Turtle no gobierna su ciclo de vida. El dueño lo ratificó: *"spawn" = proceso del SO controlado por Turtle (prohibido) ≠ sub-agente Task del CLI (permitido)*.
+
+Entonces, en clientes multi-agente (Claude Code), orquestar suma una segunda vía además del bus: **delegar trabajo y revisión en sub-agentes Task**. Sigue valiendo la regla dura —Turtle no lanza ni mata procesos; la coordinación entre personas sigue siendo asíncrona y por el bus—. En CLIs de **una sola sesión** (Codex, OpenCode) no hay sub-agentes: el patrón **degrada a un guion secuencial** dentro de la misma sesión.
+
 ## Primitivas del bus
 
 - **message_send** — envía un mensaje dirigido por rótulo (relevo a una persona) o en difusión (convocatoria a varias). Es el acto central de coordinar.
@@ -63,6 +69,26 @@ La persona orquestadora (rótulo `orquestador`):
 
 Lo que el coordinador **no** hace: no implementa código, no define el diseño ni decide por las otras personas dentro de su dominio. Coordina el flujo, no el contenido técnico ajeno.
 
+## Delegación y revisión por capas (clientes multi-agente)
+
+Donde el CLI soporta sub-agentes, el coordinador no solo releva por el bus: **delega exploración, escritura y revisión** en sub-agentes Task. Los triggers son **orgánicos** —recomiendan delegar, no son compuertas que Turtle dispare—: el texto vive como instrucción y el orquestador decide cuándo actuar.
+
+**Los 5 triggers de delegación:**
+1. **4+ archivos** para entender un flujo → delegá una **exploración** acotada.
+2. **2+ archivos no triviales** a tocar → un **solo writer**, o **review fresca** antes de cerrar.
+3. **Antes de commit/push/PR** tras cambios → **review fresca**, salvo diff trivial.
+4. **Tras un accidente** (cwd equivocado, lío de git, recuperación de merge) → **auditoría fresca** antes de seguir.
+5. **Tras ~20 tool-calls / 5 lecturas exploratorias / 2 edits no mecánicos** con complejidad creciente → **pausá y delegá**.
+
+**Lentes 4R en paralelo.** La revisión usa cuatro sub-agentes nativos del CLI (Claude Code) que ya existen: **review-risk** (R1 — riesgo/seguridad), **review-resilience** (R4 — resiliencia), **review-readability** (R2 — legibilidad) y **review-reliability** (R3 — fiabilidad). Cuando aplica más de una, se **disparan en paralelo** (varios Task en un mismo mensaje), no en serie.
+
+**Tiers de revisión:**
+- **T1 advisory** (pre-commit/push): **1 lente liviana** (`review-readability`). ~1x.
+- **T2 strong** (pre-PR en rutas sensibles `auth/` · `update/` · `security/`, o diff **> 400 líneas**): las **4 lentes 4R en paralelo**. ~4x.
+- **T3 adversarial** (tras una fase SDD de **diseño** o **aplicación**): se convoca al **consejo** ([[llm-council]], rótulo `consejo`) para verificación adversarial. Donde un gate de jueces convencional usa 2 jueces ciegos y efímeros, el consejo aporta **5 voces + peer-review anónimo + veredicto persistido como memoria `decision`**.
+
+En CLIs single-agent, estas capas **degradan a fases secuenciales** en una sola sesión; el espíritu se mantiene: explorar → escribir con un dueño → revisar fresco → escalar la profundidad por riesgo.
+
 ## Anti-patrones
 
 - **Intentar lanzar o controlar procesos**: está fuera de alcance (SRS 1.2); Turtle no tiene esa capacidad ni debe simularla.
@@ -76,6 +102,7 @@ Lo que el coordinador **no** hace: no implementa código, no define el diseño n
 - [[sdd-flow]] define la secuencia de fases (spec → diseño → implementación → revisión) que el coordinador hace cumplir gate por gate.
 - [[turtle-protocol]] fija el contrato de sesión y mensajería: cómo registrarse con rótulo y cómo enviar/leer mensajes correctamente.
 - [[commit-hygiene]] asegura que cada relevo deje un rastro limpio: el trabajo entregado en un handoff llega con commits ordenados y atribuibles.
+- [[llm-council]] aporta el tier T3: la verificación adversarial tras una fase SDD de diseño/aplicación, con veredicto persistido como memoria `decision`.
 
 ## Reglas duras
 
@@ -84,6 +111,9 @@ Lo que el coordinador **no** hace: no implementa código, no define el diseño n
 - Cada relevo nombra el **rótulo destino** y entrega **contexto** suficiente (estado, pendientes, ubicación).
 - Los conflictos se marcan con `relation_add`, no se resuelven en silencio ni editando el área ajena sin aviso.
 - El coordinador secuencia y arbitra; no implementa ni decide diseño por otras personas.
+- Delegar en un **sub-agente Task del CLI** no es spawnear: lo ejecuta el runtime del cliente, no Turtle (ratificado por el dueño del proyecto). Turtle jamás crea ni controla procesos del SO.
+- La **profundidad de revisión escala con el riesgo**: T1 advisory de rutina, T2 las 4 lentes 4R en paralelo en rutas sensibles o diffs > 400 líneas, T3 el consejo tras fases SDD de diseño/aplicación.
+- Las capas de delegación son **provider-aware**: solo donde el CLI tiene sub-agentes; en single-agent degradan a un guion secuencial.
 
 ## Validación
 
