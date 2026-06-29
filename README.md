@@ -24,6 +24,16 @@ La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para sie
 
 ---
 
+## Novedades — v0.1.8
+
+- **Consejo deliberativo (Galileo).** Nueva persona `consejo` + skill `llm-council`: somete una decisión de peso a **cinco voces adversariales** que discuten, se revisan en anónimo y entregan un **veredicto trazable** con su próximo paso — sin spawnear procesos (perspectivas o personas convocadas por el bus).
+- **`turtle perfil` — modelo por fase.** `turtle perfil <cheap|balanced|premium>` (con override por fase) ajusta el modelo de cada persona según la fase del flujo SDD, dentro de tu subscripción y **sin claves de API**.
+- **Orquestación por capas.** El orquestador suma **triggers de delegación**, revisión **en paralelo** con cuatro lentes (riesgo · fiabilidad · resiliencia · legibilidad) y tres niveles de rigor (el más alto convoca al consejo).
+- **SDD por fases nombradas** sobre el roster, con handoff entre fases por memoria.
+- **Adaptador Gemini CLI.** `turtle setup gemini` registra el MCP en `~/.gemini/settings.json` e inyecta el protocolo en `~/.gemini/GEMINI.md`.
+
+---
+
 ## Ahorro de tokens
 
 Es el eje de Turtle. El costo de "recordar" en la mayoría de las capas de memoria es alto porque devuelven el **contenido completo** de cada coincidencia en cada búsqueda. Turtle lo evita con tres palancas:
