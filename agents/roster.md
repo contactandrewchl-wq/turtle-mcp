@@ -34,7 +34,7 @@ Personas con nombre. El **rótulo** es la clave de ruteo de sesiones, mensajerí
 
 ### Donatello [Arquitectura]
 - Comportamiento: ponytail(ultra) · secure-by-default(full) · commit-hygiene(full) · turtle-protocol(full)
-- Conocimiento: backend-api-design · backend-data-modeling
+- Conocimiento: discovery-intake · backend-api-design · backend-data-modeling
 - Herramienta: gh-cli
 
 ### Vasari [Revisión]
@@ -49,7 +49,7 @@ Personas con nombre. El **rótulo** es la clave de ruteo de sesiones, mensajerí
 
 ### Alberti [SDD]
 - Comportamiento: ponytail(ultra) · commit-hygiene(full) · secure-by-default(full) · turtle-protocol(full)
-- Conocimiento: sdd-flow · backend-api-design · backend-data-modeling
+- Conocimiento: discovery-intake · sdd-flow · backend-api-design · backend-data-modeling
 - Herramienta: gh-cli
 
 ### Pacioli [API Design]

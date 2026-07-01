@@ -19,6 +19,7 @@ metadata:
       - name: turtle-protocol
         level: full
     knowledge:
+      - discovery-intake
       - sdd-flow
       - backend-api-design
       - backend-data-modeling
@@ -77,6 +78,7 @@ El flag `--agente alberti` resuelve el rótulo `sdd`, no otorga permisos nuevos:
 - [[turtle-protocol]] (full) — coordinación, mensajería y handoffs correctos por rótulo con el resto del equipo.
 
 **Conocimiento (bajo demanda):**
+- [[discovery-intake]] — el paso 0: convierte una idea vaga en un problema claro y verificable (caza de términos ambiguos con `spec_lint`) antes de escribir el SRS. Sin esto, el SDD arranca sobre requisitos borrosos.
 - [[sdd-flow]] — el método central: secuencia de artefactos (SRS 29148, SDD 1016, V&V 1012), trazabilidad y métodos de verificación I/A/D/P.
 - [[backend-api-design]] — para especificar requisitos sobre contratos e interfaces de forma verificable antes de fijarlos.
 - [[backend-data-modeling]] — para especificar requisitos de datos y entidades con su fuente de verdad antes del diseño físico.

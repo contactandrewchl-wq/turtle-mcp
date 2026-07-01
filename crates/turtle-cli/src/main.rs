@@ -45,6 +45,7 @@ mod hook;
 mod modelos;
 mod perfil;
 mod setup;
+mod speclint;
 mod statusline;
 mod sync;
 
@@ -261,6 +262,14 @@ enum Comando {
     Perfil {
         #[command(subcommand)]
         accion: Option<AccionPerfil>,
+    },
+    /// Revisa un texto/archivo de spec y marca términos ambiguos ("palabras comadreja") que vuelven
+    /// un requisito no verificable, con la pregunta para concretar cada uno. Sin archivo, lee de stdin.
+    #[command(name = "spec-lint")]
+    SpecLint {
+        /// Archivo a revisar. Si se omite, lee de la entrada estándar.
+        #[arg(value_name = "ARCHIVO")]
+        archivo: Option<PathBuf>,
     },
     /// Búsqueda semántica opt-in vía Ollama (local): `on` la prende (baja el modelo y rellena los
     /// embeddings), `off` vuelve a FTS, `status` muestra el estado. Por defecto Turtle usa FTS.
@@ -676,6 +685,8 @@ fn ejecutar(cli: Cli) -> Result<(), String> {
         // `modelos` y `perfil` solo tocan ~/.turtle y ~/.claude/agents; no necesitan la base.
         Comando::Modelos { accion } => modelos::ejecutar(accion),
         Comando::Perfil { accion } => perfil::ejecutar(accion),
+        // `spec-lint` es puro texto (stdin o un archivo): no toca la base ni la config.
+        Comando::SpecLint { archivo } => speclint::ejecutar(archivo),
         // Apagado opcional del feed de actividad (hot path del hook PreToolUse): si el usuario
         // setea $TURTLE_NO_ACTIVITY, salimos sin abrir siquiera la base. Así el costo del hook
         // baja al piso del proceso para quien no quiera el feed.
@@ -1267,9 +1278,10 @@ fn despachar(comando: Comando, servicio: MemoryService) -> Result<(), String> {
         | Comando::Uninstall { .. }
         | Comando::Statusline
         | Comando::Modelos { .. }
-        | Comando::Perfil { .. } => {
+        | Comando::Perfil { .. }
+        | Comando::SpecLint { .. } => {
             unreachable!(
-                "setup, uninstall, statusline, modelos y perfil se manejan sin abrir la base"
+                "setup, uninstall, statusline, modelos, perfil y spec-lint se manejan sin abrir la base"
             )
         }
     }

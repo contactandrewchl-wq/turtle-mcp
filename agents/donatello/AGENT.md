@@ -19,6 +19,7 @@ metadata:
       - name: turtle-protocol
         level: full
     knowledge:
+      - discovery-intake
       - backend-api-design
       - backend-data-modeling
     tool:
@@ -72,6 +73,7 @@ El flag `--agente donatello` no otorga permisos nuevos: solo selecciona el rótu
 - [[turtle-protocol]] (full) — coordinación, mensajería y handoffs correctos con el resto del equipo.
 
 **Conocimiento (bajo demanda):**
+- [[discovery-intake]] — antes de diseñar: convierte una idea vaga en un problema claro y verificable (caza de términos ambiguos con `spec_lint`), y recién ahí entra el diseño.
 - [[backend-api-design]] — para definir contratos, límites de servicio e interfaces estables entre componentes.
 - [[backend-data-modeling]] — para fijar la fuente de verdad, las entidades y cómo se relacionan los datos.
 
