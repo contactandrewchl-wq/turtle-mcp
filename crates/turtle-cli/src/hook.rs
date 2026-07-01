@@ -178,12 +178,21 @@ fn contexto_session_start(
     let checkpoint = servicio
         .latest_checkpoint(proyecto)
         .map_err(|e| e.to_string())?;
-    if recientes.rows.is_empty() && activas.is_empty() && checkpoint.is_none() {
+    // "Lo último que se hizo": resumen de la última sesión cerrada (para retomar al entrar).
+    let ultima = servicio
+        .last_session_summary(proyecto)
+        .map_err(|e| e.to_string())?;
+    if recientes.rows.is_empty() && activas.is_empty() && checkpoint.is_none() && ultima.is_none() {
         return Ok(None);
     }
     let mut texto = format!("Memoria persistente de Turtle — proyecto «{proyecto}»:\n");
     if let Some(c) = &checkpoint {
         texto.push_str(&format!("Trabajo en curso (checkpoint): {}\n", c.content));
+    }
+    if let Some(resumen) = &ultima {
+        texto.push_str(&format!(
+            "Última sesión (lo último que se hizo): {resumen}\n"
+        ));
     }
     for r in &recientes.rows {
         texto.push_str(&linea_memoria(r));

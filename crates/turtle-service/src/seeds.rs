@@ -156,7 +156,7 @@ fn construir_subagente(f: &File, overrides: &BTreeMap<String, String>) -> Option
         .unwrap_or_else(|| "inherit".to_string());
     let cuerpo = cuerpo_md(raw);
     let contenido = format!(
-        "---\nname: {slug}\ndescription: \"{descripcion}\"\nmodel: {modelo}\n---\n{MARCA_SUBAGENTE}\n\n{cuerpo}\n\nSos parte del equipo de Turtle: usá el MCP `turtle` para memoria (memory_search/memory_save) y skills (skills_search/skill_get), y coordiná por rótulo con message_send/inbox.\n"
+        "---\nname: {slug}\ndescription: \"{descripcion}\"\nmodel: {modelo}\n---\n{MARCA_SUBAGENTE}\n\n{cuerpo}\n\nEres parte del equipo de Turtle: usa el MCP `turtle` para memoria (memory_search/memory_save) y skills (skills_search/skill_get), y coordina por rótulo con message_send/inbox.\n"
     );
     Some(SubagenteClaude { slug, contenido })
 }
@@ -236,15 +236,16 @@ pub const MODELOS_CLAUDE: &[ModeloInfo] = &[
     },
     ModeloInfo {
         token: "opus",
-        nota: "Alias → Opus vigente (hoy 4.8): codear, arquitectura, razonar",
+        nota: "Alias → Opus vigente (4.8): arquitecto SDD y todo lo pensativo (razonar, decidir)",
     },
     ModeloInfo {
         token: "sonnet",
-        nota: "Alias → Sonnet vigente (4.6): equilibrio velocidad/inteligencia",
+        nota: "Alias → Sonnet vigente (Sonnet 5): coding y la mente que razona una búsqueda",
     },
     ModeloInfo {
         token: "haiku",
-        nota: "Alias → Haiku vigente (4.5): el más rápido y barato",
+        nota:
+            "Alias → Haiku vigente (4.5): el más rápido y barato — lectura/exploración de archivos",
     },
     ModeloInfo {
         token: "claude-fable-5",
@@ -462,7 +463,7 @@ pub const PERFILES: &[Perfil] = &[
         strong: "opus",
         mid: "sonnet",
         cheap: "haiku",
-        nota: "orquestación y diseño en opus, implementación en sonnet, exploración en haiku",
+        nota: "arquitecto SDD y razonamiento en opus 4.8, coding en sonnet 5, exploración/lectura en haiku",
     },
     Perfil {
         nombre: "premium",
@@ -702,5 +703,38 @@ mod tests_perfiles {
         // inherit/desconocido es el más débil: pierde ante cualquier concreto.
         assert_eq!(rango_modelo("inherit"), 0);
         assert!(rango_modelo("inherit") < rango_modelo("haiku"));
+    }
+}
+
+#[cfg(test)]
+mod tests_idioma {
+    use super::semillas;
+
+    /// Regla estricta de español latino neutro (RNF-LOC-01/02, CC-11): las skills semilla que Turtle
+    /// siembra e inyecta como comportamiento no pueden traer voseo ni modismos de país. Cubre el
+    /// cuándo-usar y el cuerpo de cada semilla (turtle-protocol, ponytail, gh-cli). Reúne todas las
+    /// faltas para reportarlas de una sola vez.
+    #[test]
+    fn skills_semilla_en_espanol_latino_neutro() {
+        let mut faltas: Vec<String> = Vec::new();
+        for sk in semillas() {
+            let campos = [
+                ("when_to_use", sk.when_to_use.as_deref().unwrap_or("")),
+                ("content", sk.content.as_str()),
+            ];
+            for (campo, texto) in campos {
+                if let Some(patron) = turtle_core::strings::regionalismo_en(texto) {
+                    faltas.push(format!(
+                        "{}::{campo} → patrón prohibido {patron:?}",
+                        sk.name
+                    ));
+                }
+            }
+        }
+        assert!(
+            faltas.is_empty(),
+            "skill semilla con voseo/modismos (RNF-LOC-01):\n{}",
+            faltas.join("\n")
+        );
     }
 }

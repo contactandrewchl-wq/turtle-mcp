@@ -90,6 +90,32 @@ fn reset_en_config(mut cfg: Config) -> Config {
     cfg
 }
 
+// ─── Default de instalación: el reparto pedido aplicado sin correr comandos ───
+
+/// Perfil que se aplica solo al instalar (paridad con el reparto por defecto): arquitecto SDD y
+/// todo lo pensativo en opus 4.8, coding en sonnet 5, exploración/lectura en haiku.
+pub(crate) const PERFIL_DEFAULT: &str = "balanced";
+
+/// `true` si corresponde aplicar el perfil por defecto: solo cuando el usuario todavía no eligió
+/// nada (ni perfil declarado ni overrides por persona). PURO: decide sobre una config, sin IO.
+fn corresponde_default(cfg: &Config) -> bool {
+    cfg.perfil.is_none() && cfg.overrides.is_empty()
+}
+
+/// Aplica el perfil por defecto SOLO si el usuario no configuró nada, y persiste la config.
+/// No destructivo e idempotente: respeta cualquier elección previa (perfil u overrides). Devuelve
+/// el nombre del perfil si lo aplicó, o `None` si ya había configuración. Lo usa `turtle setup`.
+pub(crate) fn aplicar_default_si_vacio() -> Result<Option<&'static str>, String> {
+    let cfg = modelos::leer_config();
+    if !corresponde_default(&cfg) {
+        return Ok(None);
+    }
+    let perfil = turtle_service::perfil_por_nombre(PERFIL_DEFAULT)
+        .ok_or("no se encontró el perfil por defecto.")?;
+    modelos::escribir_config(&aplicar_a_config(cfg, perfil))?;
+    Ok(Some(perfil.nombre))
+}
+
 // ─── Cáscara con IO: lee/escribe models.conf y reescribe los sub-agentes ───
 
 fn aplicar(nombre: &str) -> Result<(), String> {
@@ -193,7 +219,11 @@ fn imprimir_mapa(cfg: &Config) {
             .get(&slug)
             .map(|(r, d)| (r.as_str(), d.as_str()))
             .unwrap_or(("", "inherit"));
-        let modelo = cfg.overrides.get(&slug).map(String::as_str).unwrap_or(default);
+        let modelo = cfg
+            .overrides
+            .get(&slug)
+            .map(String::as_str)
+            .unwrap_or(default);
         println!("  {slug:<12} {rol:<14} {modelo}");
     }
     println!("(Personas fuera del flujo SDD, p. ej. botticelli/seo, no se tocan.)");
@@ -343,6 +373,44 @@ mod tests {
                 "cheap debería reescribir {slug} a haiku (no quedar en el opus de premium)"
             );
         }
+    }
+
+    #[test]
+    fn default_solo_aplica_con_config_vacia() {
+        // Config virgen (ni perfil ni overrides): corresponde aplicar el default.
+        assert!(corresponde_default(&Config::default()));
+        // Con un perfil ya declarado: NO se pisa.
+        let con_perfil = Config {
+            perfil: Some("premium".to_string()),
+            ..Config::default()
+        };
+        assert!(!corresponde_default(&con_perfil));
+        // Con overrides por persona elegidos a mano (sin perfil): tampoco se pisa.
+        let con_overrides = Config {
+            overrides: map(&[("brunelleschi", "opus")]),
+            ..Config::default()
+        };
+        assert!(!corresponde_default(&con_overrides));
+    }
+
+    #[test]
+    fn el_perfil_default_es_el_reparto_pedido() {
+        // El default debe existir y traducir el reparto: opus a lo pensativo, sonnet al coding,
+        // haiku a la exploración (que brunelleschi/michelangelo —coding— queden en sonnet lo confirma).
+        let perfil = turtle_service::perfil_por_nombre(PERFIL_DEFAULT).expect("default conocido");
+        let cfg = aplicar_a_config(Config::default(), perfil);
+        assert_eq!(
+            cfg.overrides.get("donatello").map(String::as_str),
+            Some("opus")
+        );
+        assert_eq!(
+            cfg.overrides.get("brunelleschi").map(String::as_str),
+            Some("sonnet")
+        );
+        assert_eq!(
+            cfg.overrides.get("michelangelo").map(String::as_str),
+            Some("sonnet")
+        );
     }
 
     fn perfil(nombre: &str) -> &'static Perfil {

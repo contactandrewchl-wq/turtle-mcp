@@ -112,6 +112,14 @@ pub fn ejecutar(agente: Option<String>, config_override: Option<PathBuf>) -> Res
 
     // Personas como subagentes nativos (Claude Code los muestra en su menú y respeta su `model`).
     if cliente.id == "claude-code" {
+        // Reparto de modelos por defecto: arquitecto SDD y lo pensativo en opus 4.8, coding en
+        // sonnet 5, exploración/lectura en haiku. Se aplica SOLO si el usuario no configuró nada
+        // (no pisa una elección previa de `turtle modelos`/`turtle perfil`).
+        if let Some(p) = crate::perfil::aplicar_default_si_vacio()? {
+            println!(
+                "Reparto de modelos por defecto aplicado (perfil {p}): opus 4.8 para arquitecto SDD y razonamiento, sonnet 5 para coding, haiku para exploración."
+            );
+        }
         // Respeta el modelo que el usuario haya elegido por persona (`turtle modelos`).
         let overrides = crate::modelos::leer_overrides();
         let n = instalar_subagentes(&overrides)?;
@@ -226,23 +234,24 @@ fn protocolo_core() -> &'static str {
 
 Tienes disponible el servidor MCP `turtle`. Protocolo de uso:
 
-- Al iniciar: llamá `session_start` con tu rótulo (rol/dominio) y la tarea; te entrega contexto y relevos pendientes.
-- Antes de re-derivar algo: buscá con `memory_search`; traé el detalle con `memory_get` solo si hace falta (cuidá los tokens).
-- Cuando decidas algo no obvio: guardalo con `memory_save` (tipo decision/architecture) con What/Why/Where/Learned.
-- Skills: descubrí con `skills_search` y carga con `skill_get` (comportamiento always-on, conocimiento y herramienta).
-- Coordinación/relevos: hablá con otros por rótulo con `message_send`; revisa tu `inbox`. Personas: backend, frontend, seguridad, arquitectura, revision, orquestador, sdd, api, seo.
-- Al cerrar: `session_close` con un resumen.
-- Respondé en español latino neutro."#
+- Idioma (regla estricta): responde SIEMPRE en español latino neutro (es-419), sin voseo, sin regionalismos ni modismos de ningún país. Los identificadores técnicos (nombres de variables, comandos, rutas) se mantienen en su idioma original.
+- Al iniciar: llama a `session_start` con tu rótulo (rol/dominio) y la tarea; te entrega lo último que se hizo en el proyecto (trabajo en curso + resumen de la última sesión), las memorias relevantes y los relevos pendientes. Empieza por eso para retomar de inmediato.
+- Antes de volver a derivar algo: busca con `memory_search`; trae el detalle con `memory_get` solo si hace falta (cuida los tokens).
+- Cuando decidas algo no obvio: guárdalo con `memory_save` (tipo decision/architecture) con What/Why/Where/Learned.
+- Skills: descubre con `skills_search` y carga con `skill_get` (comportamiento always-on, conocimiento y herramienta).
+- Coordinación/relevos: habla con otros por rótulo con `message_send`; revisa tu `inbox`. Personas: backend, frontend, seguridad, arquitectura, revision, orquestador, sdd, api, seo.
+- Al cerrar: `session_close` con un resumen."#
 }
 
 /// Sección de delegación a subagentes, específica de Claude Code (tool `Task`, árbol main/sub-agente,
 /// modelos opus/sonnet). NO aplica a CLIs single-agent como Codex, así que no se inyecta ahí.
 fn protocolo_delegacion_claude() -> &'static str {
     r#"## Delegación a sub-agentes (se ve en el árbol main/sub-agente de Claude Code)
-Cuando la tarea tenga dueño claro, delegá con el tool Task en vez de hacer todo en el hilo principal:
-- **Investigar, leer o recapitular** ("¿qué hicimos?", "leé/revisa X", "resumime Y") → sub-agente en **sonnet** (rápido y barato). Es el ÚNICO uso de sonnet.
-- **Codear, diseñar arquitectura, razonar o decidir** → modelo frontera **opus 4.8** (todas las personas corren en opus): backend brunelleschi · frontend michelangelo · API pacioli · arquitectura donatello · plan/SDD alberti · seguridad raphael · revisión de PR vasari · SEO botticelli · coordinación leonardo.
-- Lo trivial resolvelo en el hilo principal; no delegues por delegar."#
+Cuando la tarea tenga dueño claro, delega con el tool Task en vez de hacer todo en el hilo principal. Reparto de modelos por defecto:
+- **Pensar: arquitectura, SDD, diseño, razonar o decidir** → modelo frontera **opus 4.8** (el arquitecto SDD y todo lo pensativo): arquitectura donatello · plan/SDD alberti · coordinación leonardo · API pacioli · seguridad raphael · revisión de PR vasari · consejo galileo · SEO botticelli.
+- **Codear (implementar o cambiar código)** → **sonnet 5** (alias `sonnet`, el nuevo modelo): backend brunelleschi · frontend michelangelo.
+- **Investigar / buscar** → la **mente que razona y orquesta la búsqueda va en sonnet 5**; la **lectura y exploración de archivos (grep/read, tipo Explore) va en haiku** (lo más rápido y barato).
+- Lo trivial resuélvelo en el hilo principal; no delegues por delegar."#
 }
 
 /// Protocolo a inyectar según el cliente: el núcleo siempre; la delegación a subagentes solo en
@@ -1127,13 +1136,31 @@ mod tests {
     }
 
     #[test]
+    fn el_protocolo_inyectado_es_espanol_latino_neutro() {
+        // Regla estricta (RNF-LOC-01/02, CC-11): el texto que Turtle inyecta en las instrucciones de
+        // cada cliente (núcleo + delegación de Claude Code) no debe traer voseo ni modismos de país.
+        // Guardián con dientes: reutiliza el detector del catálogo central para no dejar que se cuele.
+        for id in ["claude-code", "codex", "gemini"] {
+            let texto = texto_protocolo(id);
+            assert_eq!(
+                turtle_core::strings::regionalismo_en(&texto),
+                None,
+                "el protocolo inyectado a '{id}' contiene un patrón prohibido (RNF-LOC-01)"
+            );
+        }
+    }
+
+    #[test]
     fn inyecta_protocolo_gemini_preserva_y_es_idempotente() {
         let ruta = ruta_temp("GEMINI_idem.md");
         std::fs::write(&ruta, "# Mi GEMINI\n\ncontenido propio del usuario\n").unwrap();
 
         inyectar_protocolo(&ruta, "gemini").unwrap();
         let t1 = std::fs::read_to_string(&ruta).unwrap();
-        assert!(t1.contains("contenido propio del usuario"), "preserva lo ajeno");
+        assert!(
+            t1.contains("contenido propio del usuario"),
+            "preserva lo ajeno"
+        );
         assert!(t1.contains("session_start"), "inyecta el protocolo");
         assert_eq!(t1.matches(MARCA_INI).count(), 1);
         assert_eq!(t1.matches(MARCA_FIN).count(), 1);

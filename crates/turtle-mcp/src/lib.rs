@@ -389,6 +389,15 @@ impl TurtleMcp {
         let outcome = servicio
             .session_deltas(&proyecto, &tarea, presupuesto, desde)
             .map_err(error_interno)?;
+        // "Mandar lo último que se hizo" al entrar al proyecto (paridad con el hook de Claude Code,
+        // que Codex/Gemini no tienen): trabajo en curso (checkpoint) + resumen de la última sesión.
+        let trabajo_en_curso = servicio
+            .latest_checkpoint(&proyecto)
+            .map_err(error_interno)?
+            .map(|c| c.content);
+        let ultima_sesion = servicio
+            .last_session_summary(&proyecto)
+            .map_err(error_interno)?;
         // Relevos: entrega los mensajes pendientes para el agente (RF-COM-06).
         let mensajes = match args.agente.as_deref() {
             Some(label) => servicio
@@ -398,6 +407,8 @@ impl TurtleMcp {
         };
         Ok(Json(SesionIniciadaSalida {
             id,
+            trabajo_en_curso,
+            ultima_sesion,
             contexto: a_indice_salida(outcome),
             mensajes: mensajes.into_iter().map(a_mensaje_salida).collect(),
         }))
@@ -1159,6 +1170,12 @@ pub struct SesionCerrarArgs {
 pub struct SesionIniciadaSalida {
     /// Identificador asignado a la sesión.
     pub id: String,
+    /// Trabajo en curso (checkpoint) para retomar al reanudar, si lo hay. "Lo último que se hizo".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trabajo_en_curso: Option<String>,
+    /// Resumen de la última sesión cerrada del proyecto (lo último que se hizo), si existe.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ultima_sesion: Option<String>,
     /// Memorias relevantes para arrancar la sesión.
     pub contexto: IndiceSalida,
     /// Mensajes pendientes entregados al agente (relevos/handoffs).

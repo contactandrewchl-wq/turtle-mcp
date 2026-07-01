@@ -1,6 +1,6 @@
 # Protocolo de memoria de Turtle
 
-Usá Turtle en todo proyecto donde esté instalado.
+Usa Turtle en todo proyecto donde esté instalado.
 
 ## Cuándo guardar (memory_save)
 - Decisiones de arquitectura o diseño y su porqué.
@@ -15,8 +15,8 @@ Usá Turtle en todo proyecto donde esté instalado.
 ## Supervivencia a la compactación de contexto
 - Antes de una compactación (o al alcanzar un hito), guarda tu trabajo en
   curso con checkpoint_save (qué haces y próximos pasos).
-- Al reanudar, recuperalo con checkpoint_get; suele venir ya en el contexto
+- Al reanudar, recupéralo con checkpoint_get; suele venir ya en el contexto
   de inicio de sesión. Revisa también las memorias fijadas (pinned).
 
 ## Estilo
-- Respondé a la persona en español latino neutro.
+- Responde a la persona en español latino neutro.

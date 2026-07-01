@@ -1176,7 +1176,7 @@ dependencies = [
 
 [[package]]
 name = "turtle-cli"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "clap",
  "directories",
@@ -1191,11 +1191,11 @@ dependencies = [
 
 [[package]]
 name = "turtle-core"
-version = "0.1.8"
+version = "0.1.9"
 
 [[package]]
 name = "turtle-data"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "directories",
  "rusqlite",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "turtle-embed"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "serde_json",
  "ureq",
@@ -1214,7 +1214,7 @@ dependencies = [
 
 [[package]]
 name = "turtle-mcp"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "rmcp",
  "schemars",
@@ -1227,7 +1227,7 @@ dependencies = [
 
 [[package]]
 name = "turtle-service"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "include_dir",
  "turtle-core",
@@ -1237,7 +1237,7 @@ dependencies = [
 
 [[package]]
 name = "turtle-usage"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "chrono",
  "directories",
