@@ -2192,7 +2192,7 @@ mod tests {
             source: Some(format!("bundle:agents/{slug}/AGENT.md")),
         };
         // Una persona "vieja" del bundle (renombrada) y una "nueva".
-        db.upsert_skill(&persona("Ada", "ada")).unwrap();
+        db.upsert_skill(&persona("Vetusto", "vetusto")).unwrap();
         db.upsert_skill(&persona("Donatello", "donatello")).unwrap();
         // Una skill del usuario (source NULL): NUNCA debe podarse.
         db.upsert_skill(&NewSkill {
@@ -2210,7 +2210,7 @@ mod tests {
         let n = db
             .prune_bundle_orphans(&[("Donatello".into(), "agent".into())])
             .unwrap();
-        assert_eq!(n, 1, "solo Ada (bundle, ausente) debe podarse");
+        assert_eq!(n, 1, "solo Vetusto (bundle, ausente) debe podarse");
 
         let nombres: Vec<String> = db
             .search_skills("persona OR propia OR rol OR skill", None, 50)
@@ -2224,7 +2224,7 @@ mod tests {
             "lo del usuario se conserva"
         );
         assert!(
-            !nombres.contains(&"Ada".to_string()),
+            !nombres.contains(&"Vetusto".to_string()),
             "la persona vieja se podó"
         );
     }

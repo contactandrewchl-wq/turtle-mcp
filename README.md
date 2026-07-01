@@ -24,8 +24,9 @@ La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para sie
 
 ---
 
-## Novedades — v0.1.9
+## Novedades — v0.1.10
 
+- **Discovery + `spec-lint`: afila QUÉ construir antes del SDD.** Nueva skill `discovery-intake` (para arquitectura y SDD) que convierte una idea vaga en un problema claro y verificable, más un **detector de "palabras comadreja"** (términos ambiguos que no son verificables, IEEE 29148): tool MCP `spec_lint` para que el agente revise su borrador, y CLI `turtle spec-lint` para revisarlo a mano.
 - **Reparto de modelos por defecto.** Al instalar, cada persona queda con un modelo adecuado sin configurar nada: razonamiento y arquitectura en el modelo más fuerte, implementación en el intermedio y exploración/lectura en el más rápido. Respeta cualquier elección previa que hayas hecho.
 - **"Lo último que se hizo" al entrar al proyecto.** Al iniciar, Turtle entrega el trabajo en curso (checkpoint) y el resumen de la última sesión para retomar de inmediato — en Claude Code por hook y en Codex/Gemini vía `session_start`.
 - **Idioma consistente (es-419).** Todo lo que Turtle muestra a la persona y la guía que entrega a los agentes va en español latino neutro, sin voseo ni modismos, verificado por pruebas automáticas.
@@ -122,7 +123,7 @@ Verifica: en una terminal nueva, `turtle --version`.
 
 1. **Instala** (arriba) y comprueba: `turtle --version`.
 2. **Instala en tu CLI todo de una** (registra el MCP, inyecta el protocolo, instala las personas
-   y **siembra el bundle embebido —22 skills + 10 personas— en la base**):
+   y **siembra el bundle embebido —23 skills + 10 personas— en la base**):
 
    ```sh
    turtle install            # menú: detecta los clientes instalados y eliges
@@ -229,7 +230,7 @@ turtle modelos reset               # volver a los modelos por defecto
 
 ```sh
 turtle skills importar             # ingiere skills/ y agents/ (proyecto + ~/.claude)
-turtle skills seed                 # carga el bundle embebido (22 skills + 10 personas)
+turtle skills seed                 # carga el bundle embebido (23 skills + 10 personas)
 turtle doctor --reparar            # repara índices FTS desincronizados
 turtle exportar -p proy --salida backup.json   # respaldo JSON abierto; importar no duplica
 turtle sync exportar .turtle/mem   # un <id>.json por memoria (versionable en git sin conflictos)

@@ -14,6 +14,7 @@ pub mod message;
 pub mod relation;
 pub mod session;
 pub mod skill;
+pub mod spec_lint;
 pub mod strings;
 
 #[cfg(test)]

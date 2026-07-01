@@ -477,6 +477,33 @@ impl TurtleMcp {
         Ok(Json(a_estadisticas_salida(e)))
     }
 
+    /// Revisa un texto de especificación y marca términos ambiguos ("palabras comadreja").
+    #[tool(
+        name = "spec_lint",
+        description = "Revisa un texto de especificación o requisitos y devuelve los términos \
+                       ambiguos ('palabras comadreja': rápido, escalable, fácil, manejar, algunos, \
+                       etc.) que lo vuelven no verificable, cada uno con la pregunta para \
+                       concretarlo. Úsalo sobre tu borrador antes de cerrar un spec (IEEE 29148)."
+    )]
+    async fn spec_lint(
+        &self,
+        Parameters(args): Parameters<SpecLintArgs>,
+    ) -> Result<Json<SpecLintSalida>, ErrorData> {
+        let ambiguos: Vec<AmbiguoSalida> =
+            turtle_core::spec_lint::terminos_ambiguos_en(&args.texto)
+                .into_iter()
+                .map(|a| AmbiguoSalida {
+                    termino: a.termino.to_string(),
+                    categoria: a.categoria.to_string(),
+                    pregunta: a.pista.to_string(),
+                })
+                .collect();
+        Ok(Json(SpecLintSalida {
+            total: ambiguos.len(),
+            ambiguos,
+        }))
+    }
+
     /// Lista los agentes registrados (rótulo, estado, rama, tarea) para coordinar entre agentes.
     #[tool(
         name = "agents_list",
@@ -1132,6 +1159,33 @@ pub struct ContextoArgs {
     pub tarea: Option<String>,
     /// Presupuesto de tokens del contexto (por defecto 2000).
     pub presupuesto: Option<usize>,
+}
+
+/// Argumentos de `spec_lint`.
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SpecLintArgs {
+    /// Texto de la especificación o requisito a revisar.
+    pub texto: String,
+}
+
+/// Un término ambiguo detectado por `spec_lint`.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct AmbiguoSalida {
+    /// El término ambiguo encontrado.
+    pub termino: String,
+    /// Categoría: cualitativo, cuantificador, verbo-paraguas o escape.
+    pub categoria: String,
+    /// Pregunta para reemplazarlo por algo verificable.
+    pub pregunta: String,
+}
+
+/// Salida de `spec_lint`: los términos ambiguos hallados y cuántos son.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct SpecLintSalida {
+    /// Términos ambiguos hallados (vacío = el texto se lee verificable).
+    pub ambiguos: Vec<AmbiguoSalida>,
+    /// Cantidad de términos ambiguos.
+    pub total: usize,
 }
 
 /// Argumentos de `memory_get`.
@@ -2453,10 +2507,10 @@ mod tests {
         assert!(info.capabilities.tools.is_some());
         assert_eq!(info.server_info.name, "turtle");
         assert!(info.instructions.is_some());
-        // Treinta: memoria (8, incl. memory_history y memory_duplicates) +
+        // Treinta y una: memoria (8, incl. memory_history y memory_duplicates) +
         // review/save_prompt/suggest_topic_key (3) = 11, sesión (3), checkpoint (2), stats (1),
-        // agentes (1), eventos (1), mensajes (2), relaciones (3), skills (6).
-        assert_eq!(s.tool_router.list_all().len(), 30);
+        // spec_lint (1), agentes (1), eventos (1), mensajes (2), relaciones (3), skills (6).
+        assert_eq!(s.tool_router.list_all().len(), 31);
     }
 
     #[test]
