@@ -24,8 +24,11 @@ La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para sie
 
 ---
 
-## Novedades — v0.1.8
+## Novedades — v0.1.9
 
+- **Reparto de modelos por defecto.** Al instalar, cada persona queda con un modelo adecuado sin configurar nada: razonamiento y arquitectura en el modelo más fuerte, implementación en el intermedio y exploración/lectura en el más rápido. Respeta cualquier elección previa que hayas hecho.
+- **"Lo último que se hizo" al entrar al proyecto.** Al iniciar, Turtle entrega el trabajo en curso (checkpoint) y el resumen de la última sesión para retomar de inmediato — en Claude Code por hook y en Codex/Gemini vía `session_start`.
+- **Idioma consistente (es-419).** Todo lo que Turtle muestra a la persona y la guía que entrega a los agentes va en español latino neutro, sin voseo ni modismos, verificado por pruebas automáticas.
 - **Consejo deliberativo (Galileo).** Nueva persona `consejo` + skill `llm-council`: somete una decisión de peso a **cinco voces adversariales** que discuten, se revisan en anónimo y entregan un **veredicto trazable** con su próximo paso — sin spawnear procesos (perspectivas o personas convocadas por el bus).
 - **`turtle perfil` — modelo por fase.** `turtle perfil <cheap|balanced|premium>` (con override por fase) ajusta el modelo de cada persona según la fase del flujo SDD, dentro de tu subscripción y **sin claves de API**.
 - **Orquestación por capas.** El orquestador suma **triggers de delegación**, revisión **en paralelo** con cuatro lentes (riesgo · fiabilidad · resiliencia · legibilidad) y tres niveles de rigor (el más alto convoca al consejo).
@@ -294,6 +297,8 @@ crates/
   turtle-mcp/       Servidor MCP
   turtle-cli/       Binario `turtle`
 ```
+
+**Idioma.** Todo lo dirigido a la persona (CLI, ayuda, protocolo inyectado a los clientes, comentarios) va en **español latino neutro (es-419)**, sin voseo ni modismos; un detector automático lo verifica en las pruebas.
 
 ---
 

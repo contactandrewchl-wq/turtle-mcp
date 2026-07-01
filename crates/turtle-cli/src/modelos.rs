@@ -510,10 +510,7 @@ botticelli = haiku
             releido.fases.get("design").map(String::as_str),
             Some("sonnet")
         );
-        assert_eq!(
-            releido.fases.get("spec").map(String::as_str),
-            Some("haiku")
-        );
+        assert_eq!(releido.fases.get("spec").map(String::as_str), Some("haiku"));
         // ...y no quedó ningún override por persona.
         assert!(releido.overrides.is_empty());
     }
@@ -523,14 +520,18 @@ botticelli = haiku
         // Parser tolerante: una directiva `#:fase <fase_desconocida> = x` se conserva como dato (el
         // parser no valida contra FASES), pero NO crea un override fantasma en la capa autoritativa,
         // y el resolver del perfil la ignora (solo itera las FASES conocidas).
-        let cfg = parsear_config("#:perfil = balanced\n#:fase noexiste = opus\ndonatello = haiku\n");
+        let cfg =
+            parsear_config("#:perfil = balanced\n#:fase noexiste = opus\ndonatello = haiku\n");
         // No se filtró a la capa de overrides.
         assert_eq!(cfg.overrides, overrides(&[("donatello", "haiku")]));
         assert!(!cfg.overrides.contains_key("noexiste"));
         // Round-trip: serializar y volver a parsear preserva la directiva desconocida tal cual.
         let round = parsear_config(&serializar_config(&cfg));
         assert_eq!(round, cfg);
-        assert_eq!(round.fases.get("noexiste").map(String::as_str), Some("opus"));
+        assert_eq!(
+            round.fases.get("noexiste").map(String::as_str),
+            Some("opus")
+        );
         // El resolver la ignora: el mapa resuelto es idéntico al de balanced sin overrides de fase.
         let perfil = turtle_service::perfil_por_nombre("balanced").unwrap();
         let con_fase_fantasma = turtle_service::perfil_resolver(perfil, &round.fases);

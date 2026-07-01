@@ -526,8 +526,8 @@ impl Db {
              WHERE project=?1 AND tier='hot' AND importance!='pinned' AND accessed_at < ?2",
             params![project, warm_cutoff_ms, now],
         )?;
-        // Al pasar a frío, la memoria es contexto añejo: se marca needs_review (paridad funcional
-        // mem_review). Así una búsqueda/contexto que la devuelva avisa "verificar antes de confiar".
+        // Al pasar a frío, la memoria es contexto añejo: se marca needs_review. Así una
+        // búsqueda/contexto que la devuelva avisa "verificar antes de confiar".
         let a_frio = self.conn.execute(
             "UPDATE memories SET tier='cold', review_state='needs_review', updated_at=?3
              WHERE project=?1 AND tier='warm' AND importance!='pinned' AND accessed_at < ?2",
@@ -536,8 +536,8 @@ impl Db {
         Ok((a_tibio, a_frio))
     }
 
-    /// Memorias marcadas `needs_review` de un proyecto, en modo índice (paridad funcional
-    /// `mem_review list`). Incluye las personales. Más recientes primero (por `updated_at`).
+    /// Memorias marcadas `needs_review` de un proyecto, en modo índice (revisión de añejas).
+    /// Incluye las personales. Más recientes primero (por `updated_at`).
     pub fn needs_review_index(
         &self,
         project: &str,
@@ -923,6 +923,25 @@ impl Db {
         )?;
         let rows = stmt.query_map(params![project, limit], map_session)?;
         rows.collect()
+    }
+
+    /// Resumen de la última sesión CERRADA de un proyecto (lo último que se hizo), o `None` si no
+    /// hay ninguna cerrada con resumen. Ordena por fecha de cierre (`ended_at`) descendente —no por
+    /// inicio— porque "lo último" es la que se terminó más tarde; desempata por `rowid` (monótono
+    /// por inserción, robusto ante cierres en el mismo milisegundo, a diferencia del ULID que lleva
+    /// azar). Ignora sesiones abiertas y cerradas sin resumen.
+    pub fn last_closed_session_summary(&self, project: &str) -> rusqlite::Result<Option<String>> {
+        self.conn
+            .query_row(
+                "SELECT summary FROM sessions
+                 WHERE project = ?1 AND status = 'closed'
+                   AND summary IS NOT NULL AND trim(summary) <> ''
+                 ORDER BY ended_at DESC, rowid DESC
+                 LIMIT 1",
+                params![project],
+                |r| r.get(0),
+            )
+            .optional()
     }
 
     /// Marca de inicio de la sesión más reciente de un proyecto (RF-TOK-04), o `None` si no hay.

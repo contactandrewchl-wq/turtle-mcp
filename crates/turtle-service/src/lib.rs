@@ -257,8 +257,8 @@ impl MemoryService {
         self.db.needs_review_index(project, limit)
     }
 
-    /// Marca una memoria como revisada: vuelve a `active` y refresca su acceso (sistemas afines
-    /// `mem_review mark_reviewed`). Decisión explícita del agente; no la hace el sistema solo.
+    /// Marca una memoria como revisada: vuelve a `active` y refresca su acceso. Decisión
+    /// explícita del agente; no la hace el sistema solo.
     pub fn mark_reviewed(&self, id: &str) -> rusqlite::Result<bool> {
         self.db.mark_reviewed(id)
     }
@@ -1003,6 +1003,14 @@ impl MemoryService {
         limit: u32,
     ) -> rusqlite::Result<Vec<Session>> {
         self.db.recent_sessions(project, limit)
+    }
+
+    /// Resumen de la última sesión CERRADA del proyecto (lo último que se hizo), si existe. Es la
+    /// que se terminó más tarde (ordena por fecha de cierre); ignora las abiertas y las cerradas sin
+    /// resumen. Lo consumen el hook de session-start (Claude Code) y el tool `session_start`
+    /// (Codex/Gemini) para "mandar lo último que se hizo" al entrar al proyecto.
+    pub fn last_session_summary(&self, project: &str) -> rusqlite::Result<Option<String>> {
+        self.db.last_closed_session_summary(project)
     }
 
     /// Inicia una sesión asociada a un proyecto, una tarea declarada y un agente (RF-SES-01).
