@@ -173,10 +173,153 @@ pub const PALABRAS_AMBIGUAS: &[Ambiguo] = &[
         categoria: "escape",
         pista: "enumera los casos o márcalo como incógnita abierta",
     },
+    // Inglés: los specs reales mezclan idiomas ("debe ser fast y user friendly") o llegan enteros
+    // en inglés; las mismas comadrejas aplican. "simple" y "flexible" se escriben igual en ambos
+    // idiomas y ya están arriba (no se duplican). Las pistas siguen en español (es-419).
+    Ambiguo {
+        termino: "fast",
+        categoria: "cualitativo",
+        pista: "¿cuánto? define un umbral (p. ej. p95 < 200 ms)",
+    },
+    Ambiguo {
+        termino: "slow",
+        categoria: "cualitativo",
+        pista: "¿respecto de qué umbral medible?",
+    },
+    Ambiguo {
+        termino: "scalable",
+        categoria: "cualitativo",
+        pista: "¿a cuántos usuarios/req concurrentes sin degradar?",
+    },
+    Ambiguo {
+        termino: "efficient",
+        categoria: "cualitativo",
+        pista: "¿en qué métrica (CPU, memoria, tiempo) y cuánto?",
+    },
+    Ambiguo {
+        termino: "optimal",
+        categoria: "cualitativo",
+        pista: "¿óptimo según qué criterio medible?",
+    },
+    Ambiguo {
+        termino: "robust",
+        categoria: "cualitativo",
+        pista: "¿ante qué fallas concretas debe resistir?",
+    },
+    Ambiguo {
+        termino: "secure",
+        categoria: "cualitativo",
+        pista: "¿contra qué amenaza y con qué control?",
+    },
+    Ambiguo {
+        termino: "easy",
+        categoria: "cualitativo",
+        pista: "¿criterio observable (pasos, tiempo, sin ayuda)?",
+    },
+    Ambiguo {
+        termino: "intuitive",
+        categoria: "cualitativo",
+        pista: "¿un usuario nuevo completa la tarea sin ayuda?",
+    },
+    Ambiguo {
+        termino: "modern",
+        categoria: "cualitativo",
+        pista: "¿qué versión o estándar concreto?",
+    },
+    Ambiguo {
+        termino: "powerful",
+        categoria: "cualitativo",
+        pista: "¿qué capacidad medible?",
+    },
+    Ambiguo {
+        termino: "reliable",
+        categoria: "cualitativo",
+        pista: "¿qué disponibilidad/tasa de error (p. ej. 99.9%)?",
+    },
+    Ambiguo {
+        termino: "some",
+        categoria: "cuantificador",
+        pista: "¿cuántos exactamente?",
+    },
+    Ambiguo {
+        termino: "several",
+        categoria: "cuantificador",
+        pista: "¿cuántos exactamente?",
+    },
+    Ambiguo {
+        termino: "many",
+        categoria: "cuantificador",
+        pista: "¿cuántos exactamente?",
+    },
+    Ambiguo {
+        termino: "few",
+        categoria: "cuantificador",
+        pista: "¿cuántos exactamente?",
+    },
+    Ambiguo {
+        termino: "approximately",
+        categoria: "cuantificador",
+        pista: "¿qué valor con tolerancia (p. ej. 100 ± 5)?",
+    },
+    Ambiguo {
+        termino: "handle",
+        categoria: "verbo-paraguas",
+        pista: "¿qué operaciones exactas (crear/leer/actualizar/borrar)?",
+    },
+    Ambiguo {
+        termino: "manage",
+        categoria: "verbo-paraguas",
+        pista: "¿qué acciones concretas?",
+    },
+    Ambiguo {
+        termino: "improve",
+        categoria: "verbo-paraguas",
+        pista: "¿de qué valor a qué valor?",
+    },
+    Ambiguo {
+        termino: "optimize",
+        categoria: "verbo-paraguas",
+        pista: "¿qué métrica y hasta cuánto?",
+    },
 ];
 
 /// Términos ambiguos de VARIAS palabras (se detectan por subcadena en minúsculas).
 pub const FRASES_AMBIGUAS: &[Ambiguo] = &[
+    Ambiguo {
+        termino: "easy to use",
+        categoria: "cualitativo",
+        pista: "¿qué criterio observable de usabilidad?",
+    },
+    Ambiguo {
+        termino: "user friendly",
+        categoria: "cualitativo",
+        pista: "¿qué criterio de usabilidad observable?",
+    },
+    Ambiguo {
+        termino: "user-friendly",
+        categoria: "cualitativo",
+        pista: "¿qué criterio de usabilidad observable?",
+    },
+    Ambiguo {
+        termino: "as needed",
+        categoria: "escape",
+        pista: "¿bajo qué condición exacta?",
+    },
+    Ambiguo {
+        termino: "if applicable",
+        categoria: "escape",
+        pista: "¿aplica o no? decídelo",
+    },
+    Ambiguo {
+        termino: "and so on",
+        categoria: "escape",
+        pista: "enumera los casos",
+    },
+    Ambiguo {
+        termino: "among others",
+        categoria: "escape",
+        pista: "enumera los casos",
+    },
     Ambiguo {
         termino: "fácil de usar",
         categoria: "cualitativo",
@@ -226,8 +369,10 @@ pub const FRASES_AMBIGUAS: &[Ambiguo] = &[
 
 /// Quita las tildes y la diéresis (á→a, ñ→n, ü→u) para comparar sin depender de que la persona
 /// escriba los acentos: en specs reales conviven "rápido" y "rapido". La `ñ` se mapea a `n` solo
-/// para el cotejo (ninguna comadreja del catálogo la usa como distintivo).
-fn sin_acentos(s: &str) -> String {
+/// para el cotejo (ninguna comadreja del catálogo la usa como distintivo). Pública porque también
+/// normaliza claves estables (p. ej. el `topic_key` sugerido: "decisión" y "decision" deben dar
+/// la misma clave).
+pub fn sin_acentos(s: &str) -> String {
     s.chars()
         .map(|c| match c {
             'á' | 'à' | 'ä' | 'â' => 'a',
@@ -308,6 +453,29 @@ mod tests {
         assert!(t.contains(&"manejar"));
         assert!(t.contains(&"varios"));
         assert!(t.contains(&"según sea necesario"));
+    }
+
+    #[test]
+    fn detecta_comadrejas_en_ingles() {
+        // Specs en inglés (o mezclados) traen las mismas comadrejas; se detectan igual.
+        let t: Vec<&str> = terminos_ambiguos_en(
+            "The system must be fast, scalable and user-friendly. It should handle several \
+             payments as needed.",
+        )
+        .iter()
+        .map(|a| a.termino)
+        .collect();
+        assert!(t.contains(&"fast"), "{t:?}");
+        assert!(t.contains(&"scalable"), "{t:?}");
+        assert!(t.contains(&"user-friendly"), "{t:?}");
+        assert!(t.contains(&"handle"), "{t:?}");
+        assert!(t.contains(&"several"), "{t:?}");
+        assert!(t.contains(&"as needed"), "{t:?}");
+        // La prosa concreta en inglés no dispara nada.
+        assert!(terminos_ambiguos_en(
+            "The /checkout endpoint responds in p95 < 200 ms at 5000 req/min and returns 201."
+        )
+        .is_empty());
     }
 
     #[test]

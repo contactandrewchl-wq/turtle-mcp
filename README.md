@@ -24,6 +24,16 @@ La mayoría de las capas de memoria **acumulan plano**: todo pesa igual para sie
 
 ---
 
+## Novedades — v0.1.11
+
+- **Búsqueda que no se rinde.** `memory_search` reintenta con "cualquier término" cuando la búsqueda estricta (todos los términos) no devuelve nada: una consulta en lenguaje natural ya no muere porque una sola palabra no aparezca. Primero precisión, después cobertura; con la semántica activa, el reintento rehace el camino híbrido.
+- **`spec-lint` ahora caza en inglés.** Los specs en inglés o mezclados ("debe ser *fast* y *user-friendly*") también se detectan: fast, scalable, handle, several, "as needed", etc., con las preguntas para concretarlos en español.
+- **Skills de comunicación persona↔agente.** Tres skills nuevas: `pedido-claro` (el agente refleja qué entendió antes de ejecutar, pregunta solo lo que bifurca el diseño y te enseña a pedir mejor), `reporte-comprensible` (resultado primero y en lenguaje llano, cómo probarlo, riesgos por impacto) y `glosario-vivo` (las mismas palabras significan lo mismo en todas las sesiones).
+- **Cartel visible al abrir Claude Code.** El hook de inicio ahora muestra en la terminal un aviso corto con "lo último que se hizo" (trabajo en curso + última sesión), antes de que escribas nada.
+- **Endurecimientos de seguridad y robustez.** Nombres de fragmento saneados en el sync (un id externo ya no puede escribir fuera del directorio), escritura atómica de las configs de otros CLIs, detección de hooks anclada al binario, claves de tema sin tildes ("decisión" y "decision" agrupan igual) y poda automática del feed de actividad a 90 días.
+
+---
+
 ## Novedades — v0.1.10
 
 - **Discovery + `spec-lint`: afila QUÉ construir antes del SDD.** Nueva skill `discovery-intake` (para arquitectura y SDD) que convierte una idea vaga en un problema claro y verificable, más un **detector de "palabras comadreja"** (términos ambiguos que no son verificables, IEEE 29148): tool MCP `spec_lint` para que el agente revise su borrador, y CLI `turtle spec-lint` para revisarlo a mano.

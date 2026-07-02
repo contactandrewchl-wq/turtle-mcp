@@ -445,6 +445,13 @@ impl MemoryService {
         self.db.prune_ephemeral(project, ahora_ms() - dias * DIA_MS)
     }
 
+    /// Poda los eventos del feed de actividad más viejos que `dias`. El feed crece sin techo (el
+    /// hook PreToolUse registra CADA tool-call): sin poda, la tabla domina el tamaño de la base y
+    /// solo aporta historia que nadie consulta. Devuelve cuántos se eliminaron.
+    pub fn podar_eventos(&self, project: &str, dias: i64) -> rusqlite::Result<usize> {
+        self.db.prune_events(project, ahora_ms() - dias * DIA_MS)
+    }
+
     /// Línea de tiempo de una memoria y sus relacionadas, en orden cronológico (RF-REC-09).
     pub fn memory_timeline(&self, id: &str) -> rusqlite::Result<Vec<MemoryIndexRow>> {
         self.db.related_timeline(id)
@@ -757,21 +764,49 @@ impl MemoryService {
         if q.is_empty() {
             return Ok(apply_budget(Vec::new(), token_budget));
         }
-        let candidates = match verbosidad {
-            Verbosidad::Indice if self.semantica_activa() => {
-                self.buscar_hibrido_indice(&q, query, project)?
+        // Con la semántica activa (opt-in), el modo índice va por el camino híbrido FTS+RRF; el
+        // resto (o sin semántica) usa FTS puro según la verbosidad.
+        let buscar = |consulta: &str| -> rusqlite::Result<Vec<MemoryIndexRow>> {
+            if matches!(verbosidad, Verbosidad::Indice) && self.semantica_activa() {
+                self.buscar_hibrido_indice(consulta, query, project)
+            } else {
+                self.buscar_con_verbosidad(consulta, project, verbosidad)
             }
-            Verbosidad::Indice => self.db.search_index(&q, project, MAX_CANDIDATES)?,
+        };
+        let mut candidates = buscar(&q)?;
+        // Rescate de recall: los tokens unidos por espacio son un AND implícito de FTS5 (todos
+        // deben aparecer), lo que con una consulta en lenguaje natural deja 0 resultados si un
+        // solo término no matchea. Si no hubo filas y había más de un término, se reintenta con
+        // OR (cualquier término), que ordena igual por relevancia bm25: primero precisión,
+        // después cobertura. Con semántica activa el reintento rehace el híbrido (su componente
+        // FTS es el que sufre el AND estricto).
+        if candidates.is_empty() {
+            let alternativa = sanitizar_fts_or(query);
+            if alternativa != q {
+                candidates = buscar(&alternativa)?;
+            }
+        }
+        Ok(apply_budget(candidates, token_budget))
+    }
+
+    /// Corre la búsqueda FTS ya sanitizada con el perfil de verbosidad pedido (RF-REC-04).
+    fn buscar_con_verbosidad(
+        &self,
+        q: &str,
+        project: Option<&str>,
+        verbosidad: Verbosidad,
+    ) -> rusqlite::Result<Vec<MemoryIndexRow>> {
+        Ok(match verbosidad {
+            Verbosidad::Indice => self.db.search_index(q, project, MAX_CANDIDATES)?,
             Verbosidad::Compacto => {
-                let mut rows = self.db.search_index_full(&q, project, MAX_CANDIDATES)?;
+                let mut rows = self.db.search_index_full(q, project, MAX_CANDIDATES)?;
                 for r in &mut rows {
                     r.cuerpo = r.cuerpo.as_deref().map(extracto);
                 }
                 rows
             }
-            Verbosidad::Completo => self.db.search_index_full(&q, project, MAX_CANDIDATES)?,
-        };
-        Ok(apply_budget(candidates, token_budget))
+            Verbosidad::Completo => self.db.search_index_full(q, project, MAX_CANDIDATES)?,
+        })
     }
 
     // ─── Semántica opt-in (vía Ollama). Default: apagada → todo sigue en FTS. ───
@@ -1369,14 +1404,15 @@ pub fn suggest_topic_key(kind_area: &str, title: &str, content: &str) -> Option<
 }
 
 /// Slug minúsculo: separa por todo lo que no sea alfanumérico, descarta tokens cortos (1-2 chars),
-/// toma hasta `max` palabras y las une con guiones. Sin acentos especiales: deja los alfanuméricos
-/// Unicode tal cual en minúscula (no transliterá), suficiente para una clave estable.
+/// toma hasta `max` palabras, les quita las tildes (á→a, ñ→n) y las une con guiones.
 fn slug_palabras(texto: &str, max: usize) -> String {
     texto
         .split(|c: char| !c.is_alphanumeric())
         .filter(|w| w.chars().count() >= 3)
         .take(max)
-        .map(|w| w.to_lowercase())
+        // Sin tildes: "Decisión" y "decision" deben producir la MISMA clave, o el mismo tema se
+        // parte en dos según cómo tipeó la persona esa vez (el upsert por topic_key no los une).
+        .map(|w| turtle_core::spec_lint::sin_acentos(&w.to_lowercase()))
         .collect::<Vec<_>>()
         .join("-")
 }
@@ -1418,9 +1454,23 @@ fn consulta_dup(titulo: &str, resumen: Option<&str>, contenido: Option<&str>) ->
 /// rompe el `MATCH` (RNF-USA-03). Devuelve cadena vacía si no quedan tokens.
 fn sanitizar_fts(q: &str) -> String {
     q.split_whitespace()
-        .map(|t| format!("\"{}\"", t.replace('"', "\"\"")))
+        .map(token_fts)
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// Como `sanitizar_fts`, pero une los tokens con `OR`: matchea cualquier término en vez de exigir
+/// todos. Es el reintento de recall de `search` cuando el AND implícito no devuelve nada.
+fn sanitizar_fts_or(q: &str) -> String {
+    q.split_whitespace()
+        .map(token_fts)
+        .collect::<Vec<_>>()
+        .join(" OR ")
+}
+
+/// Un token de consulta como literal FTS5: entre comillas dobles, con las internas escapadas.
+fn token_fts(t: &str) -> String {
+    format!("\"{}\"", t.replace('"', "\"\""))
 }
 
 #[cfg(test)]
@@ -1620,6 +1670,51 @@ mod tests {
         assert!(acotado.total_tokens <= 50);
         assert!(acotado.rows.len() < amplio.rows.len());
         assert!(acotado.truncated);
+    }
+
+    #[test]
+    fn busqueda_reintenta_con_or_si_el_and_no_devuelve_nada() {
+        let s = servicio();
+        s.save(&nueva(
+            "Decisión sobre retrieval",
+            "usamos FTS5 con bm25 para el índice",
+            "retrieval con FTS5",
+        ))
+        .unwrap();
+        // Consulta en lenguaje natural con términos que NO están todos en la memoria: el AND
+        // implícito daría 0; el reintento con OR la encuentra por los términos que sí matchean.
+        let r = s
+            .search(
+                "retrieval semántico híbrido embeddings",
+                None,
+                100_000,
+                Verbosidad::Indice,
+            )
+            .unwrap();
+        assert_eq!(r.rows.len(), 1, "el fallback OR debe rescatar el resultado");
+        // Con un solo término inexistente no hay alternativa distinta: sigue vacío.
+        let vacio = s
+            .search("inexistentexyz", None, 100_000, Verbosidad::Indice)
+            .unwrap();
+        assert!(vacio.rows.is_empty());
+        // Cuando el AND sí matchea, el resultado no cambia (primero precisión).
+        let directo = s
+            .search("retrieval FTS5", None, 100_000, Verbosidad::Indice)
+            .unwrap();
+        assert_eq!(directo.rows.len(), 1);
+    }
+
+    #[test]
+    fn topic_key_sugerido_normaliza_tildes() {
+        // "Decisión"/"decision" deben dar la MISMA clave: el upsert por topic_key no une claves
+        // que difieren solo en tildes.
+        let con = super::suggest_topic_key("decision", "Decisión de retrieval semántico", "");
+        let sin = super::suggest_topic_key("decision", "decision de retrieval semantico", "");
+        assert_eq!(con, sin);
+        assert_eq!(
+            con.as_deref(),
+            Some("decision/decision-retrieval-semantico")
+        );
     }
 
     #[test]
@@ -2112,9 +2207,10 @@ mod tests {
     #[test]
     fn suggest_topic_key_propone_clave_estable() {
         // area = tipo de memoria; sub = slug de las primeras 4 palabras significativas (3+ chars)
-        // del título. "de" (2 chars) se descarta; los acentos se conservan en minúscula.
+        // del título. "de" (2 chars) se descarta; los acentos se normalizan (ñ→n) para que la
+        // clave no dependa de cómo tipeó la persona esa vez.
         let k = super::suggest_topic_key("architecture", "Diseño del esquema de datos", "");
-        assert_eq!(k.as_deref(), Some("architecture/diseño-del-esquema-datos"));
+        assert_eq!(k.as_deref(), Some("architecture/diseno-del-esquema-datos"));
         // Sin título usa el contenido.
         let k2 = super::suggest_topic_key("note", "", "Migración de la base SQLite");
         assert!(k2.unwrap().starts_with("note/"));

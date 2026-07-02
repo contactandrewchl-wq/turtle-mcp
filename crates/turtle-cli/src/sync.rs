@@ -172,9 +172,21 @@ pub fn exportar_fragmentos(
     for m in &mems {
         let texto =
             serde_json::to_string_pretty(&MemoriaJson::from(m)).map_err(|e| e.to_string())?;
-        std::fs::write(dir.join(format!("{}.json", m.id)), texto).map_err(|e| e.to_string())?;
+        std::fs::write(dir.join(nombre_fragmento(&m.id)), texto).map_err(|e| e.to_string())?;
     }
     Ok(mems.len())
+}
+
+/// Nombre de archivo seguro para un fragmento. Los ids propios son ULID (alfanuméricos), pero el
+/// import acepta ids arbitrarios de un JSON externo: un id con separadores de ruta (`..\x`) haría
+/// que el export escriba FUERA del directorio de sync (traversal). Todo carácter no alfanumérico
+/// se reemplaza por `_`; el nombre queda siempre dentro de `dir`.
+fn nombre_fragmento(id: &str) -> String {
+    let seguro: String = id
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect();
+    format!("{seguro}.json")
 }
 
 /// Importa todos los fragmentos `*.json` de un directorio (RF-SYN-02). Devuelve
@@ -219,6 +231,40 @@ mod tests {
     fn rechaza_formato_desconocido() {
         let json = r#"{"turtle_export":99,"exportado_en":0,"memorias":[]}"#;
         assert!(importar(&servicio(), json).is_err());
+    }
+
+    #[test]
+    fn fragmento_con_id_hostil_no_escapa_del_directorio() {
+        // Un id importado de un JSON externo puede traer separadores de ruta: el nombre del
+        // fragmento debe quedar saneado (sin `\`, `/` ni `..`), siempre dentro del directorio.
+        assert_eq!(
+            nombre_fragmento(r"..\..\evil"),
+            "______evil.json".to_string()
+        );
+        assert_eq!(nombre_fragmento("../otro/lado"), "___otro_lado.json");
+        // Un ULID real queda intacto.
+        assert_eq!(
+            nombre_fragmento("01KWFXD3TBQV73XRS6XZYRK6CB"),
+            "01KWFXD3TBQV73XRS6XZYRK6CB.json"
+        );
+    }
+
+    #[test]
+    fn exportar_fragmentos_sanea_ids_importados() {
+        let s = servicio();
+        // Importa una memoria con id hostil (como vendría de un JSON externo)...
+        let json = r#"{"turtle_export":1,"memorias":[
+            {"id":"..\\evil","proyecto":"demo","tipo":"note",
+             "titulo":"Hostil","contenido":"x","importancia":"normal",
+             "nivel":"hot","creado_en":1,"actualizado_en":1,"accedido_en":1}]}"#;
+        importar(&s, json).unwrap();
+        // ...y exporta los fragmentos: el archivo debe quedar DENTRO del directorio destino.
+        let dir = std::env::temp_dir().join(format!("turtle_sync_qa_{}", std::process::id()));
+        let escritos = exportar_fragmentos(&s, Some("demo"), &dir).unwrap();
+        assert_eq!(escritos, 1);
+        assert!(dir.join("___evil.json").exists());
+        assert!(!dir.parent().unwrap().join("evil.json").exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
