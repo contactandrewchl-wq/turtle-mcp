@@ -43,14 +43,14 @@ pub fn ejecutar(evento: &str, servicio: &MemoryService) -> Result<(), String> {
         return registrar_actividad(servicio, entrada.as_ref(), &proyecto);
     }
 
-    let (nombre_evento, contexto) = match evento {
+    let (nombre_evento, contexto, aviso) = match evento {
         "session-start" => {
-            let ctx = contexto_session_start(servicio, &proyecto)?;
+            let ic = contexto_session_start(servicio, &proyecto)?;
             // Auto-mantenimiento y auto-sync: best-effort, throttled, silencioso. Corre DESPUÉS de
             // calcular el contexto a inyectar (que es el contrato visible del hook) y NO falla el
             // hook si algo sale mal — así el usuario nunca tiene que correr `escalonar`/`podar`/`sync`.
             auto_mantenimiento(servicio, &proyecto);
-            ("SessionStart", ctx)
+            ("SessionStart", ic.contexto, ic.aviso)
         }
         "prompt-submit" | "user-prompt-submit" => {
             let prompt = entrada
@@ -79,6 +79,7 @@ pub fn ejecutar(evento: &str, servicio: &MemoryService) -> Result<(), String> {
             (
                 "UserPromptSubmit",
                 if ctx.is_empty() { None } else { Some(ctx) },
+                None,
             )
         }
         otro => {
@@ -88,8 +89,11 @@ pub fn ejecutar(evento: &str, servicio: &MemoryService) -> Result<(), String> {
         }
     };
 
-    if let Some(texto) = contexto {
-        println!("{}", envolver(nombre_evento, &texto));
+    if contexto.is_some() || aviso.is_some() {
+        println!(
+            "{}",
+            envolver(nombre_evento, contexto.as_deref(), aviso.as_deref())
+        );
     }
     Ok(())
 }
@@ -159,12 +163,20 @@ fn registrar_actividad(
     Ok(())
 }
 
+/// Resultado del contexto de inicio: lo que recibe el agente (`contexto` → `additionalContext`) y un
+/// cartel corto y VISIBLE para el usuario (`aviso` → `systemMessage`, con "lo último que se hizo").
+struct InicioContexto {
+    contexto: Option<String>,
+    aviso: Option<String>,
+}
+
 /// Contexto al iniciar una sesión: memorias fijadas + cambios desde la última sesión + recientes
-/// del proyecto, como deltas para no reinyectar todo (RF-TOK-04).
+/// del proyecto, como deltas para no reinyectar todo (RF-TOK-04). Además arma un cartel visible con
+/// "lo último que se hizo" para que el usuario lo VEA al abrir Claude, antes de tipear nada.
 fn contexto_session_start(
     servicio: &MemoryService,
     proyecto: &str,
-) -> Result<Option<String>, String> {
+) -> Result<InicioContexto, String> {
     let desde = servicio
         .previous_session_start(proyecto)
         .map_err(|e| e.to_string())?;
@@ -183,7 +195,10 @@ fn contexto_session_start(
         .last_session_summary(proyecto)
         .map_err(|e| e.to_string())?;
     if recientes.rows.is_empty() && activas.is_empty() && checkpoint.is_none() && ultima.is_none() {
-        return Ok(None);
+        return Ok(InicioContexto {
+            contexto: None,
+            aviso: None,
+        });
     }
     let mut texto = format!("Memoria persistente de Turtle — proyecto «{proyecto}»:\n");
     if let Some(c) = &checkpoint {
@@ -215,9 +230,52 @@ fn contexto_session_start(
         }
     }
     texto.push_str(
-        "Usá las herramientas MCP de Turtle (memory_search, memory_get, skill_get) para más.",
+        "Usa las herramientas MCP de Turtle (memory_search, memory_get, skill_get) para más.",
     );
-    Ok(Some(texto))
+    // Cartel visible (systemMessage): el checkpoint y el resumen de la última sesión, en corto, para
+    // que el usuario lo lea al abrir Claude sin tener que preguntar. El agente igual recibe el detalle
+    // completo por `additionalContext`.
+    let aviso = aviso_session_start(
+        checkpoint.as_ref().map(|c| c.content.as_str()),
+        ultima.as_deref(),
+        proyecto,
+    );
+    Ok(InicioContexto {
+        contexto: Some(texto),
+        aviso,
+    })
+}
+
+/// Arma el cartel visible de inicio con "lo último que se hizo", a partir del checkpoint (trabajo en
+/// curso) y del resumen de la última sesión. `None` si no hay ninguno de los dos (nada que mostrar).
+/// Aplana y recorta cada parte para que sea un aviso breve, no un volcado de memoria a la terminal.
+fn aviso_session_start(
+    checkpoint: Option<&str>,
+    ultima: Option<&str>,
+    proyecto: &str,
+) -> Option<String> {
+    if checkpoint.is_none() && ultima.is_none() {
+        return None;
+    }
+    let mut s = format!("🐢 Turtle · «{proyecto}» — lo último que se hizo:");
+    if let Some(c) = checkpoint {
+        s.push_str(&format!("\n▸ En curso: {}", recortar(c, 240)));
+    }
+    if let Some(u) = ultima {
+        s.push_str(&format!("\n▸ Última sesión: {}", recortar(u, 240)));
+    }
+    Some(s)
+}
+
+/// Aplana los espacios (incluidos saltos de línea) y recorta a `max` caracteres, con elipsis si se
+/// cortó. Trabaja por caracteres, no por bytes, para no partir un carácter multibyte (acentos, emojis).
+fn recortar(s: &str, max: usize) -> String {
+    let plano = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    if plano.chars().count() <= max {
+        return plano;
+    }
+    let recortado: String = plano.chars().take(max).collect();
+    format!("{}…", recortado.trim_end())
 }
 
 /// Contexto al enviar un prompt: memorias del proyecto relevantes a lo que se pidió.
@@ -241,7 +299,7 @@ fn contexto_prompt(
     for r in &res.rows {
         texto.push_str(&linea_memoria(r));
     }
-    texto.push_str("Recuperá el contenido con memory_get(id) si lo necesitás.");
+    texto.push_str("Recupera el contenido con memory_get(id) si lo necesitas.");
     Ok(Some(texto))
 }
 
@@ -261,14 +319,19 @@ fn linea_memoria(r: &turtle_core::memory::MemoryIndexRow) -> String {
     )
 }
 
-/// Envuelve el contexto en el formato de salida de hook de Claude Code.
-fn envolver(evento: &str, contexto: &str) -> serde_json::Value {
-    serde_json::json!({
-        "hookSpecificOutput": {
-            "hookEventName": evento,
-            "additionalContext": contexto,
-        }
-    })
+/// Envuelve la salida en el formato de hook de Claude Code. `contexto` va a `additionalContext` (lo
+/// recibe el agente antes del primer prompt); `aviso` va a `systemMessage` (lo VE el usuario en la
+/// terminal). Cualquiera de los dos puede faltar; se omite el campo correspondiente.
+fn envolver(evento: &str, contexto: Option<&str>, aviso: Option<&str>) -> serde_json::Value {
+    let mut hook = serde_json::json!({ "hookEventName": evento });
+    if let Some(c) = contexto {
+        hook["additionalContext"] = serde_json::json!(c);
+    }
+    let mut v = serde_json::json!({ "hookSpecificOutput": hook });
+    if let Some(a) = aviso {
+        v["systemMessage"] = serde_json::json!(a);
+    }
+    v
 }
 
 fn leer_stdin_json() -> Option<serde_json::Value> {
@@ -314,7 +377,7 @@ fn texto_nudge(last_save: Option<i64>, last_nudge: Option<i64>, ahora: i64) -> O
     }
     let min = (ahora - last_save) / 60_000;
     Some(format!(
-        "💾 Hace ~{min} min que no guardas nada en este proyecto. Si decidiste o aprendiste algo no obvio, usá memory_save."
+        "💾 Hace ~{min} min que no guardas nada en este proyecto. Si decidiste o aprendiste algo no obvio, usa memory_save."
     ))
 }
 
@@ -465,11 +528,85 @@ mod tests {
     #[test]
     fn session_start_inyecta_memorias_del_proyecto() {
         let s = servicio();
-        let ctx = contexto_session_start(&s, "demo").unwrap().unwrap();
+        let ctx = contexto_session_start(&s, "demo")
+            .unwrap()
+            .contexto
+            .unwrap();
         assert!(ctx.contains("Usar rmcp para el MCP"));
         assert!(ctx.contains("proyecto «demo»"));
-        // Un proyecto sin memorias no inyecta nada.
-        assert!(contexto_session_start(&s, "vacio").unwrap().is_none());
+        // Un proyecto sin memorias no inyecta nada (ni contexto ni cartel visible).
+        let vacio = contexto_session_start(&s, "vacio").unwrap();
+        assert!(vacio.contexto.is_none());
+        assert!(vacio.aviso.is_none());
+    }
+
+    #[test]
+    fn session_start_incluye_lo_ultimo_que_se_hizo() {
+        let s = servicio();
+        // Sin sesiones cerradas, no aparece la línea de "última sesión".
+        let ctx = contexto_session_start(&s, "demo")
+            .unwrap()
+            .contexto
+            .unwrap();
+        assert!(!ctx.contains("Última sesión"));
+        // Tras cerrar una sesión con resumen, ese resumen se inyecta al iniciar.
+        let id = s
+            .start_session("demo", Some("armar el MCP"), None, None)
+            .unwrap();
+        s.close_session(&id, Some("Quedó el servidor MCP sobre stdio"))
+            .unwrap();
+        let ctx = contexto_session_start(&s, "demo")
+            .unwrap()
+            .contexto
+            .unwrap();
+        assert!(ctx.contains("Última sesión (lo último que se hizo):"));
+        assert!(ctx.contains("Quedó el servidor MCP sobre stdio"));
+    }
+
+    #[test]
+    fn session_start_emite_cartel_visible_con_lo_ultimo() {
+        let s = servicio();
+        // Con solo una memoria (sin sesión cerrada ni checkpoint): hay contexto pero no cartel visible.
+        assert!(contexto_session_start(&s, "demo").unwrap().aviso.is_none());
+        // Tras cerrar una sesión con resumen, aparece el cartel visible (systemMessage) con lo último.
+        let id = s
+            .start_session("demo", Some("armar el MCP"), None, None)
+            .unwrap();
+        s.close_session(&id, Some("Quedó el servidor MCP sobre stdio"))
+            .unwrap();
+        let aviso = contexto_session_start(&s, "demo")
+            .unwrap()
+            .aviso
+            .expect("debe haber cartel visible tras cerrar una sesión con resumen");
+        assert!(aviso.contains("lo último que se hizo"));
+        assert!(aviso.contains("«demo»"));
+        assert!(aviso.contains("Quedó el servidor MCP sobre stdio"));
+    }
+
+    #[test]
+    fn aviso_session_start_arma_cartel_o_nada() {
+        // Con checkpoint y última sesión: cartel con ambas partes rotuladas.
+        let a = aviso_session_start(Some("trabajo en curso X"), Some("resumen Y"), "demo").unwrap();
+        assert!(a.contains("«demo»"));
+        assert!(a.contains("En curso: trabajo en curso X"));
+        assert!(a.contains("Última sesión: resumen Y"));
+        // Solo checkpoint: sin la línea de última sesión.
+        let solo = aviso_session_start(Some("wip"), None, "demo").unwrap();
+        assert!(solo.contains("En curso: wip"));
+        assert!(!solo.contains("Última sesión"));
+        // Sin nada: no hay cartel.
+        assert!(aviso_session_start(None, None, "demo").is_none());
+    }
+
+    #[test]
+    fn recortar_aplana_saltos_y_corta_por_caracteres() {
+        // Aplana saltos de línea y espacios múltiples; bajo el tope, sin elipsis.
+        assert_eq!(recortar("hola\n  mundo", 100), "hola mundo");
+        // Sobre el tope: recorta por caracteres (no bytes) y agrega elipsis.
+        let largo = "á".repeat(300); // multibyte: no debe partir un carácter
+        let r = recortar(&largo, 10);
+        assert_eq!(r.chars().count(), 11, "10 caracteres + elipsis");
+        assert!(r.ends_with('…'));
     }
 
     #[test]
@@ -527,9 +664,15 @@ mod tests {
 
     #[test]
     fn envoltura_tiene_el_formato_de_hook() {
-        let v = envolver("SessionStart", "hola");
+        // Solo contexto (para el agente): sin systemMessage.
+        let v = envolver("SessionStart", Some("hola"), None);
         assert_eq!(v["hookSpecificOutput"]["hookEventName"], "SessionStart");
         assert_eq!(v["hookSpecificOutput"]["additionalContext"], "hola");
+        assert!(v.get("systemMessage").is_none());
+        // Contexto + cartel visible: el aviso va como systemMessage de nivel superior.
+        let v = envolver("SessionStart", Some("ctx"), Some("visible para el usuario"));
+        assert_eq!(v["systemMessage"], "visible para el usuario");
+        assert_eq!(v["hookSpecificOutput"]["additionalContext"], "ctx");
     }
 
     #[test]
