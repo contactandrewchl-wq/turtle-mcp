@@ -1080,6 +1080,16 @@ impl Db {
         Ok(())
     }
 
+    /// Poda los eventos de un proyecto anteriores a `before_ms` (mantenimiento del feed, que crece
+    /// con cada tool-call). Devuelve cuántos se eliminaron.
+    pub fn prune_events(&self, project: &str, before_ms: i64) -> rusqlite::Result<usize> {
+        let n = self.conn.execute(
+            "DELETE FROM events WHERE project=?1 AND created_at < ?2",
+            params![project, before_ms],
+        )?;
+        Ok(n)
+    }
+
     /// Lista los eventos más recientes (feed de actividad), del más nuevo al más antiguo.
     pub fn list_events(&self, project: Option<&str>, limit: u32) -> rusqlite::Result<Vec<Event>> {
         let mut stmt = self.conn.prepare(
@@ -1899,6 +1909,33 @@ mod tests {
         assert_eq!(eventos.len(), 1);
         assert_eq!(eventos[0].kind, EventKind::ToolUsed);
         assert_eq!(eventos[0].summary.as_deref(), Some("Read"));
+    }
+
+    #[test]
+    fn prune_events_poda_solo_lo_viejo_del_proyecto() {
+        use turtle_core::event::{EventKind, NewEvent};
+        let db = Db::open_in_memory().unwrap();
+        for (proyecto, resumen) in [("turtle", "viejo"), ("turtle", "nuevo"), ("otro", "ajeno")] {
+            db.record_event(&NewEvent {
+                project: proyecto.into(),
+                agent: None,
+                kind: EventKind::ToolUsed,
+                target_id: None,
+                summary: Some(resumen.into()),
+            })
+            .unwrap();
+        }
+        // Envejece uno a mano para simular un evento de hace tiempo.
+        db.conn
+            .execute("UPDATE events SET created_at=1 WHERE summary='viejo'", [])
+            .unwrap();
+        // Corte en el presente: poda el viejo, conserva el nuevo y no toca otros proyectos.
+        let podados = db.prune_events("turtle", super::now_ms() - 1000).unwrap();
+        assert_eq!(podados, 1);
+        let quedan = db.list_events(Some("turtle"), 10).unwrap();
+        assert_eq!(quedan.len(), 1);
+        assert_eq!(quedan[0].summary.as_deref(), Some("nuevo"));
+        assert_eq!(db.list_events(Some("otro"), 10).unwrap().len(), 1);
     }
 
     #[test]

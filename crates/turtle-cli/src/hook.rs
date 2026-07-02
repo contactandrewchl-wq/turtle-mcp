@@ -376,6 +376,9 @@ const MANTENIMIENTO_INTERVALO_MS: i64 = 24 * 60 * 60 * 1000;
 const DIAS_TIBIO: i64 = 14;
 const DIAS_FRIO: i64 = 60;
 const DIAS_PODA_EFIMERAS: i64 = 30;
+/// Retención del feed de actividad: el hook PreToolUse registra CADA tool-call, así que la tabla
+/// de eventos crece sin techo (miles por semana de uso real). 90 días conservan la historia útil.
+const DIAS_PODA_EVENTOS: i64 = 90;
 
 /// Decide si corresponde correr el mantenimiento ahora. Puro y testeable: depende solo de la marca
 /// de la última corrida. Si nunca corrió (`None`), corre; si pasó el intervalo, corre.
@@ -423,6 +426,7 @@ fn auto_mantenimiento(servicio: &MemoryService, proyecto: &str) {
     }
     let _ = servicio.escalonar(proyecto, DIAS_TIBIO, DIAS_FRIO);
     let _ = servicio.podar_efimeras(proyecto, DIAS_PODA_EFIMERAS);
+    let _ = servicio.podar_eventos(proyecto, DIAS_PODA_EVENTOS);
     auto_sync(servicio, proyecto);
 }
 

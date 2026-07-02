@@ -412,13 +412,15 @@ fn es_hook_turtle(entrada: &serde_json::Value) -> bool {
         .unwrap_or(false)
 }
 
-/// `true` si un comando de hook es de Turtle: contiene la secuencia `hook <evento>` para alguno de
-/// nuestros subcomandos. Reconoce el formato actual (`"<bin>" hook session-start`) sin depender del
-/// matcher, así desinstala incluso hooks de versiones previas (que solo registraban `hook activity`).
+/// `true` si un comando de hook es de Turtle: contiene `" hook <evento>` para alguno de nuestros
+/// subcomandos, ANCLADO a la comilla que cierra la ruta del binario (todas nuestras versiones
+/// registran `"<bin>" hook <sub>`, incluida la vieja que solo tenía `hook activity`). El ancla
+/// evita el falso positivo por subcadena: un hook ajeno como `githook activity` contiene
+/// `hook activity` pero no `" hook activity`, y no debe desinstalarse como si fuera nuestro.
 fn comando_es_hook_turtle(cmd: &str) -> bool {
     HOOKS
         .iter()
-        .any(|h| cmd.contains(&format!("hook {}", h.sub)))
+        .any(|h| cmd.contains(&format!("\" hook {}", h.sub)))
 }
 
 /// Registra (idempotente) los tres hooks de Turtle en settings.json: `PreToolUse` (feed de
@@ -827,9 +829,25 @@ fn leer(ruta: &Path) -> Result<String, String> {
     std::fs::read_to_string(ruta).map_err(|e| format!("no se pudo leer {}: {e}", ruta.display()))
 }
 
+/// Escritura atómica: escribe a un archivo temporal en el MISMO directorio y lo renombra sobre el
+/// destino. Estos archivos son configs de otros CLIs (settings.json, CLAUDE.md, …): un corte a
+/// mitad de un `fs::write` directo los dejaría truncados y rompería al cliente. En Windows el
+/// rename falla si el destino existe; se quita primero (la ventana sin archivo es mucho menor que
+/// la de un write parcial).
 fn escribir(ruta: &Path, contenido: &str) -> Result<(), String> {
-    std::fs::write(ruta, contenido)
-        .map_err(|e| format!("no se pudo escribir {}: {e}", ruta.display()))
+    let nombre = ruta
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("config");
+    let tmp = ruta.with_file_name(format!("{nombre}.turtle-tmp"));
+    std::fs::write(&tmp, contenido)
+        .map_err(|e| format!("no se pudo escribir {}: {e}", tmp.display()))?;
+    if std::fs::rename(&tmp, ruta).is_err() {
+        let _ = std::fs::remove_file(ruta);
+        std::fs::rename(&tmp, ruta)
+            .map_err(|e| format!("no se pudo escribir {}: {e}", ruta.display()))?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1315,6 +1333,19 @@ mod tests {
         assert_eq!(cuenta_hooks_turtle(&v, "PreToolUse"), 1);
         assert_eq!(v["tema"], "oscuro", "preserva el resto del archivo");
         let _ = std::fs::remove_file(&ruta);
+    }
+
+    #[test]
+    fn hook_ajeno_con_subcadena_no_se_confunde_con_turtle() {
+        // "githook activity" contiene "hook activity" pero NO es nuestro: sin la comilla que
+        // cierra la ruta del binario no debe reconocerse (ni quitarse en un uninstall).
+        assert!(!comando_es_hook_turtle("githook activity"));
+        assert!(!comando_es_hook_turtle("/usr/bin/mihook session-start"));
+        // Los formatos propios (nuevo y viejo) sí se reconocen.
+        assert!(comando_es_hook_turtle(
+            "\"C:\\bin\\turtle.exe\" hook session-start"
+        ));
+        assert!(comando_es_hook_turtle("\"/bin/turtle\" hook activity"));
     }
 
     #[test]

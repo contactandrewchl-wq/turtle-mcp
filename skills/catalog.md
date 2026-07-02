@@ -19,6 +19,8 @@ estos metadatos; el contenido completo se carga con `skill_get(<nombre>)`
 | [`secure-by-default`](secure-by-default/SKILL.md) | permanente · lite/full/ultra/off | Mentalidad de seguridad compacta: validar entrada, escapar salida, sin secretos en logs, denegar por defecto. |
 | [`commit-hygiene`](commit-hygiene/SKILL.md) | permanente · lite/full/ultra/off | Conventional commits, un cambio por commit, sin co-autoría automática del agente, sin `--no-verify`. |
 | [`turtle-protocol`](turtle-protocol/SKILL.md) | permanente | Cuándo buscar/guardar memoria, contexto tras compactación, coordinación entre agentes y respuesta en español latino neutro. |
+| [`pedido-claro`](pedido-claro/SKILL.md) | permanente · lite/full/ultra/off | Puente de entendimiento por pedido: reflejo de lo entendido, `spec_lint` sobre requisitos, preguntas solo si bifurcan el diseño, y espejo para pedir mejor la próxima. |
+| [`reporte-comprensible`](reporte-comprensible/SKILL.md) | permanente · lite/full/ultra/off | Reportar a la persona: resultado primero y en lenguaje llano, cómo probarlo en pasos, riesgos por impacto, jerga explicada. |
 
 ## Conocimiento — frontend / UX (bajo demanda)
 
@@ -54,6 +56,13 @@ estos metadatos; el contenido completo se carga con `skill_get(<nombre>)`
 | [`sdd-flow`](sdd-flow/SKILL.md) | propia (adapta `spec-driven-development-orchestrator`) | Desarrollo dirigido por especificación anclado a IEEE (29148, 1016, 1012, 29119, 12207): especificar → diseñar → planificar → implementar → verificar, con trazabilidad y método I/A/D/P. |
 | [`agent-orchestration`](agent-orchestration/SKILL.md) | propia (adapta `maestro-orchestrator` / Agent Mail, sin spawning) | Coordinar varias personas sobre el bus asíncrono de Turtle (mensajería, bandeja, actividad, relaciones). Respeta el límite del SRS: nunca lanza ni controla procesos. |
 | [`llm-council`](llm-council/SKILL.md) | adapta `tenfoldmarc/llm-council-skill` (MIT), sin spawning | Consejo deliberativo: somete una decisión a cinco voces adversariales que discuten, se revisan en anónimo y entregan un veredicto trazable (memoria `decision`). Contrarresta la complacencia; nunca lanza procesos. |
+
+## Conocimiento — comunicación / discovery (bajo demanda)
+
+| Nombre | Origen | Uso |
+|---|---|---|
+| [`discovery-intake`](discovery-intake/SKILL.md) | propia | Paso 0 del SDD: convierte una idea vaga en problema claro + criterios verificables, con entrevista por cinco ejes y caza de "palabras comadreja" vía `spec_lint`. |
+| [`glosario-vivo`](glosario-vivo/SKILL.md) | propia | Glosario del proyecto en memorias evolutivas (`topic_key: glosario/<término>`): mismo significado para las mismas palabras en todas las sesiones. |
 
 ## Conocimiento — growth / SEO (bajo demanda)
 
