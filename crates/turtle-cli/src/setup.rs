@@ -134,6 +134,13 @@ pub fn ejecutar(agente: Option<String>, config_override: Option<PathBuf>) -> Res
                 s.display()
             );
         }
+    } else if cliente.id == "opencode" {
+        // OpenCode: subagentes nativos en ~/.config/opencode/agents (sin hooks ni perfil default;
+        // el reparto de modelos vive en el `model:` del frontmatter de cada agente del bundle).
+        let n = instalar_subagentes_opencode()?;
+        println!(
+            "Agentes instalados como subagentes de OpenCode: {n} (en ~/.config/opencode/agents/)."
+        );
     }
     Ok(())
 }
@@ -254,13 +261,31 @@ Cuando la tarea tenga dueño claro, delega con el tool Task en vez de hacer todo
 - Lo trivial resuélvelo en el hilo principal; no delegues por delegar."#
 }
 
-/// Protocolo a inyectar según el cliente: el núcleo siempre; la delegación a subagentes solo en
-/// Claude Code (es lo único Claude-específico; el resto es provider-agnóstico).
+/// Sección de delegación a subagentes, específica de OpenCode (tool `task`, agentes en
+/// `~/.config/opencode/agents/`). OpenCode soporta subagentes nativos con `mode: subagent` y
+/// controla cuáles puede invocar un agente (`permission.task`). Reparto de modelos del plan
+/// zai-coding-plan (GLM), replicando el stack Opus+Sonnet sobre Z.AI.
+fn protocolo_delegacion_opencode() -> &'static str {
+    r#"## Delegación a sub-agentes (tool `task` de OpenCode)
+Cuando la tarea tenga dueño claro, delega con el tool `task` al subagente adecuado (definidos en `~/.config/opencode/agents/`). Reparto de modelos por defecto (plan zai-coding-plan):
+- **Pensar: arquitectura, SDD, diseño, seguridad, revisión, consejo, API** → frontera **glm-5.2** (≈ Opus 4.8): arquitectura · sdd · seguridad · revision · consejo · api · orquestador.
+- **Codear (implementar o cambiar código)** → **glm-5.2** (5.x supera a 4.7 en frontend): backend · frontend.
+- **Investigar / buscar / sintetizar** → **glm-5** (investigador; supera a Sonnet 4.7).
+- **QA y ejecución de tests** → **glm-5-turbo** (agent executor, tool calling).
+- **SEO / GEO** → **glm-4.7**.
+- **Multimodal (mockup/screenshot → código)** → **glm-5v-turbo** (vision).
+- **Tareas mecánicas, lookup, formato** → **glm-4.5-air** (rápido, 7x más barato).
+- Lo trivial resuélvelo en el hilo principal; no delegues por delegar."#
+}
+
+/// Protocolo a inyectar según el cliente: el núcleo siempre; la delegación a subagentes en los
+/// clientes multi-agente (Claude Code con tool `Task`, OpenCode con tool `task`). Los CLIs
+/// single-agent (Codex, Gemini) reciben solo el núcleo.
 fn texto_protocolo(id: &str) -> String {
-    if id == "claude-code" {
-        format!("{}\n\n{}", protocolo_core(), protocolo_delegacion_claude())
-    } else {
-        protocolo_core().to_string()
+    match id {
+        "claude-code" => format!("{}\n\n{}", protocolo_core(), protocolo_delegacion_claude()),
+        "opencode" => format!("{}\n\n{}", protocolo_core(), protocolo_delegacion_opencode()),
+        _ => protocolo_core().to_string(),
     }
 }
 
@@ -322,6 +347,63 @@ fn escribir_subagentes_en(
     }
     // Poda: elimina los subagentes que escribió Turtle (llevan el marcador `TURTLE-AGENT`) cuyo slug
     // ya no corresponde a una persona vigente (p. ej. renombradas). Nunca toca archivos ajenos.
+    if let Ok(entradas) = std::fs::read_dir(dir) {
+        for entrada in entradas.flatten() {
+            let ruta = entrada.path();
+            if ruta.extension().and_then(|e| e.to_str()) != Some("md") {
+                continue;
+            }
+            let vigente = ruta
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .is_some_and(|slug| vigentes.contains(slug));
+            if vigente {
+                continue;
+            }
+            if std::fs::read_to_string(&ruta)
+                .unwrap_or_default()
+                .contains("TURTLE-AGENT")
+            {
+                let _ = std::fs::remove_file(&ruta);
+            }
+        }
+    }
+    Ok(n)
+}
+
+/// Escribe los shells genéricos de Turtle como subagentes nativos de OpenCode
+/// (`~/.config/opencode/agents/`). El `model:` del frontmatter de cada agente del bundle se respeta.
+/// No pisa archivos ajenos: solo crea nuevos o reemplaza los que llevan el marcador de Turtle.
+pub(crate) fn instalar_subagentes_opencode() -> Result<usize, String> {
+    let home = directories::BaseDirs::new()
+        .ok_or("no se pudo determinar la carpeta del usuario.")?
+        .home_dir()
+        .to_path_buf();
+    escribir_subagentes_opencode_en(&home.join(".config").join("opencode").join("agents"))
+}
+
+/// Escribe los agentes de OpenCode en `dir` (lo crea si falta). No pisa archivos ajenos (los que no
+/// llevan el marcador `TURTLE-AGENT`). Poda los agentes obsoletos de Turtle (marcados pero cuyo slug
+/// ya no está en el bundle). Separada de la ruta del home para poder probarla con un dir temporal.
+fn escribir_subagentes_opencode_en(dir: &Path) -> Result<usize, String> {
+    std::fs::create_dir_all(dir).map_err(|e| format!("no se pudo crear {}: {e}", dir.display()))?;
+    let subagentes = turtle_service::subagentes_opencode(&BTreeMap::new());
+    let vigentes: std::collections::HashSet<String> =
+        subagentes.iter().map(|sa| sa.slug.clone()).collect();
+    let mut n = 0;
+    for sa in &subagentes {
+        let ruta = dir.join(format!("{}.md", sa.slug));
+        if ruta.exists() {
+            let actual = std::fs::read_to_string(&ruta).unwrap_or_default();
+            if !actual.contains("TURTLE-AGENT") {
+                continue; // respetar un agente ajeno con el mismo nombre
+            }
+        }
+        escribir(&ruta, &sa.contenido)?;
+        n += 1;
+    }
+    // Poda: elimina los agentes que escribió Turtle (llevan el marcador `TURTLE-AGENT`) cuyo slug
+    // ya no corresponde a un agente vigente del bundle. Nunca toca archivos ajenos.
     if let Ok(entradas) = std::fs::read_dir(dir) {
         for entrada in entradas.flatten() {
             let ruta = entrada.path();
@@ -558,6 +640,9 @@ pub fn desinstalar(agente: Option<String>, config_override: Option<PathBuf>) -> 
                 s.display()
             );
         }
+    } else if cliente.id == "opencode" {
+        let n = quitar_subagentes_opencode()?;
+        println!("Agentes de Turtle quitados de OpenCode: {n}.");
     }
     println!("Listo. La memoria sembrada en la base se conserva (borrala aparte si quieres).");
     Ok(())
@@ -667,19 +752,14 @@ fn quitar_mcp_toml(ruta: &Path) -> Result<bool, String> {
     Ok(true)
 }
 
-/// Borra los subagentes generados por Turtle (`~/.claude/agents/*.md` con el marcador). Devuelve cuántos.
-fn quitar_subagentes() -> Result<usize, String> {
-    let home = directories::BaseDirs::new()
-        .ok_or("no se pudo determinar la carpeta del usuario.")?
-        .home_dir()
-        .to_path_buf();
-    let dir = home.join(".claude").join("agents");
+/// Borra los subagentes generados por Turtle en `dir` (`*.md` con el marcador). Devuelve cuántos.
+fn quitar_subagentes_en(dir: &Path) -> Result<usize, String> {
     if !dir.is_dir() {
         return Ok(0);
     }
     let mut n = 0;
     let rd =
-        std::fs::read_dir(&dir).map_err(|e| format!("no se pudo leer {}: {e}", dir.display()))?;
+        std::fs::read_dir(dir).map_err(|e| format!("no se pudo leer {}: {e}", dir.display()))?;
     for e in rd.flatten() {
         let p = e.path();
         if p.extension().and_then(|x| x.to_str()) == Some("md") {
@@ -692,6 +772,24 @@ fn quitar_subagentes() -> Result<usize, String> {
         }
     }
     Ok(n)
+}
+
+/// Borra los subagentes de Turtle de Claude Code (`~/.claude/agents/`). Devuelve cuántos.
+fn quitar_subagentes() -> Result<usize, String> {
+    let home = directories::BaseDirs::new()
+        .ok_or("no se pudo determinar la carpeta del usuario.")?
+        .home_dir()
+        .to_path_buf();
+    quitar_subagentes_en(&home.join(".claude").join("agents"))
+}
+
+/// Borra los agentes de Turtle de OpenCode (`~/.config/opencode/agents/`). Devuelve cuántos.
+fn quitar_subagentes_opencode() -> Result<usize, String> {
+    let home = directories::BaseDirs::new()
+        .ok_or("no se pudo determinar la carpeta del usuario.")?
+        .home_dir()
+        .to_path_buf();
+    quitar_subagentes_en(&home.join(".config").join("opencode").join("agents"))
 }
 
 /// Fusiona la entrada MCP de Turtle dentro de un JSON con `mcpServers`, preservando el resto.
@@ -1026,15 +1124,21 @@ mod tests {
     }
 
     #[test]
-    fn protocolo_opencode_es_core_sin_delegacion_de_subagentes() {
-        // OpenCode (single-agent como Codex): recibe el núcleo del MCP, NO la sección Claude-específica.
+    fn protocolo_opencode_lleva_delegacion_con_tool_task() {
+        // OpenCode soporta subagentes nativos (tool `task`, `mode: subagent`, `permission.task`):
+        // recibe el núcleo del MCP MÁS la sección de delegación con el reparto de modelos GLM.
         let ruta = ruta_temp("AGENTS_opencode.md");
         inyectar_protocolo(&ruta, "opencode").unwrap();
         let t = std::fs::read_to_string(&ruta).unwrap();
         assert!(t.contains("session_start"), "lleva el núcleo del MCP");
         assert!(
-            !t.contains("Delegación a sub-agentes"),
-            "OpenCode no lleva la sección de subagentes"
+            t.contains("tool `task`"),
+            "OpenCode sí lleva la sección de delegación con su tool task"
+        );
+        assert!(t.contains("glm-5.2"), "lleva el reparto de modelos GLM");
+        assert!(
+            !t.contains("opus 4.8"),
+            "no lleva el reparto Anthropic de Claude"
         );
         let _ = std::fs::remove_file(&ruta);
     }
@@ -1139,7 +1243,7 @@ mod tests {
         // Gemini CLI usa ~/.gemini/GEMINI.md como contexto global.
         assert!(ruta_instrucciones("gemini").unwrap().ends_with("GEMINI.md"));
 
-        // Gemini (single-agent, como Codex/OpenCode): recibe el núcleo del MCP, NO la sección
+        // Gemini (single-agent, como Codex): recibe el núcleo del MCP, NO la sección
         // Claude-específica de delegación a subagentes.
         let ruta = ruta_temp("GEMINI.md");
         inyectar_protocolo(&ruta, "gemini").unwrap();
@@ -1401,5 +1505,67 @@ mod tests {
             "lista vacía se limpia"
         );
         let _ = std::fs::remove_file(&ruta);
+    }
+
+    #[test]
+    fn opencode_instala_subagentes_y_no_pisa_ajenos() {
+        let dir = std::env::temp_dir().join(format!(
+            "turtle_oc_inst_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        // Un agente ajeno preexistente (sin marca TURTLE-AGENT) no debe pisarse.
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("ajeno.md"),
+            "---\ndescription: ajeno\nmode: subagent\n---\ncuerpo ajeno\n",
+        )
+        .unwrap();
+
+        let n = escribir_subagentes_opencode_en(&dir).unwrap();
+        assert!(n >= 14, "instala los shells del bundle (fue {n})");
+
+        // El ajeno se preserva (sin marca).
+        let ajeno = std::fs::read_to_string(dir.join("ajeno.md")).unwrap();
+        assert!(!ajeno.contains("TURTLE-AGENT"), "no pisa el ajeno");
+
+        // Cada agente de Turtle lleva la marca y conserva el frontmatter de opencode.
+        let backend = std::fs::read_to_string(dir.join("backend.md")).unwrap();
+        assert!(backend.contains("TURTLE-AGENT"), "lleva la marca");
+        assert!(backend.contains("mode: subagent"), "conserva el frontmatter");
+        assert!(
+            backend.contains("model: zai-coding-plan/"),
+            "lleva modelo del plan Z.AI"
+        );
+
+        // Reescribir es idempotente: misma cuenta de slugs.
+        let n2 = escribir_subagentes_opencode_en(&dir).unwrap();
+        assert_eq!(n, n2, "idempotente");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn opencode_quitar_subagentes_borra_marcados_preserva_ajenos() {
+        let dir = std::env::temp_dir().join(format!(
+            "turtle_oc_rm_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        // Dos marcados como Turtle y uno ajeno.
+        std::fs::write(dir.join("a.md"), "x\n<!-- TURTLE-AGENT: ... -->\n").unwrap();
+        std::fs::write(dir.join("b.md"), "y\n<!-- TURTLE-AGENT: ... -->\n").unwrap();
+        std::fs::write(dir.join("ajeno.md"), "z sin marca\n").unwrap();
+
+        let n = quitar_subagentes_en(&dir).unwrap();
+        assert_eq!(n, 2, "borra los dos marcados");
+        assert!(!dir.join("a.md").exists(), "borró a.md");
+        assert!(!dir.join("b.md").exists(), "borró b.md");
+        assert!(dir.join("ajeno.md").exists(), "preserva el ajeno");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

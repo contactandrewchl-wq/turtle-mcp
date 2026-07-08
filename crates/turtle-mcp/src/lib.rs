@@ -1263,7 +1263,6 @@ pub struct FilaIndice {
     /// Resumen de una línea, si existe.
     pub resumen: Option<String>,
     /// `true` si la memoria está marcada para revisión (contexto añejo): verifica antes de confiar.
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub needs_review: bool,
     /// Cuerpo según la verbosidad: extracto (compacto) o contenido completo (completo).
     #[serde(skip_serializing_if = "Option::is_none")]

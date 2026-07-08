@@ -212,6 +212,84 @@ fn buscar_modelo(dir: &Dir, slug: &str, out: &mut Option<String>) {
     }
 }
 
+// ─── Agentes de OpenCode como subagentes nativos ───
+//
+// OpenCode lee subagentes de markdown en `~/.config/opencode/agents/<slug>.md` con un frontmatter
+// propio (`description`, `mode`, `model`, `permission`). El bundle `agents/opencode/*.md` del repo
+// ya viene con ese formato completo (14 shells genéricos alineados con los rótulos del bus Turtle);
+// esta función los sirve con la marca `TURTLE-AGENT` para que el configurador los pueda reemplazar
+// sin pisar archivos ajenos.
+
+/// Subdirectorio embebido con los shells genéricos de OpenCode.
+static OPENCODE_AGENTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../agents/opencode");
+
+/// Un agente de OpenCode (nombre de archivo por `slug`) listo para escribir en disco.
+pub struct SubagenteOpencode {
+    pub slug: String,
+    pub contenido: String,
+}
+
+/// Genera los agentes de OpenCode desde el bundle embebido (`agents/opencode/*.md`).
+/// `overrides` mapea `slug → modelo` (ej. `"backend" → "zai-coding-plan/glm-5.2"`); cuando hay uno,
+/// pisa el `model:` del frontmatter. Pasa un mapa vacío para usar los modelos del bundle.
+pub fn subagentes_opencode(overrides: &BTreeMap<String, String>) -> Vec<SubagenteOpencode> {
+    let mut out = Vec::new();
+    for f in OPENCODE_AGENTS_DIR.files() {
+        let Some(raw) = f.contents_utf8() else {
+            continue;
+        };
+        let Some(slug) = f.path().file_stem().and_then(|s| s.to_str()) else {
+            continue;
+        };
+        // Solo `.md` (ignora README u otros que pudieran aparecer).
+        if f.path().extension().and_then(|x| x.to_str()) != Some("md") {
+            continue;
+        }
+        out.push(SubagenteOpencode {
+            slug: slug.to_string(),
+            contenido: construir_opencode(raw, slug, overrides),
+        });
+    }
+    out.sort_by(|a, b| a.slug.cmp(&b.slug));
+    out
+}
+
+/// Inserta la marca `TURTLE-AGENT` después del frontmatter y aplica el override de `model:` si lo hay.
+fn construir_opencode(raw: &str, slug: &str, overrides: &BTreeMap<String, String>) -> String {
+    // Normalizar CRLF para que el parseo por `\n` sea consistente.
+    let norm = raw.replace("\r\n", "\n");
+    let Some(resto) = norm.strip_prefix("---\n") else {
+        // Sin frontmatter: devolver tal cual con la marca al final.
+        return format!("{norm}\n\n{MARCA_SUBAGENTE}\n");
+    };
+    let Some(i) = resto.find("\n---\n") else {
+        return format!("{norm}\n\n{MARCA_SUBAGENTE}\n");
+    };
+    let fm = &resto[..i];
+    let cuerpo = &resto[i + "\n---\n".len()..];
+    let fm_final = match overrides.get(slug) {
+        Some(m) => reescribir_campo_lineal(fm, "model", m),
+        None => fm.to_string(),
+    };
+    format!("---\n{fm_final}\n---\n\n{MARCA_SUBAGENTE}\n\n{cuerpo}")
+}
+
+/// Reemplaza el valor de `campo: <valor>` en un bloque de frontmatter (coincidencia de línea exacta).
+/// Si la línea no existe, el bloque queda igual (no inserta el campo).
+fn reescribir_campo_lineal(fm: &str, campo: &str, valor: &str) -> String {
+    let prefix = format!("{campo}:");
+    fm.split('\n')
+        .map(|l| {
+            if l.trim_start().starts_with(&prefix) {
+                format!("{campo}: {valor}")
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 // ─── Catálogo de modelos frontera (Claude Code, por subscripción) ───
 //
 // Lo que el usuario puede asignar a una persona con `turtle modelos`. El `token` es lo que va al

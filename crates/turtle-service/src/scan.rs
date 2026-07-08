@@ -15,22 +15,28 @@ pub struct Escaneo {
     pub fuentes: Vec<PathBuf>,
 }
 
-/// Directorios de skills/agentes locales al proyecto (relativos al `cwd`).
+/// Directorios de skills/agentes locales al proyecto (relativos al `cwd`). Cubre los de Claude Code
+/// (`.claude/`) y los de OpenCode (`.opencode/`), además de las carpetas planas `skills`/`agents`.
 pub fn rutas_proyecto(cwd: &Path) -> Vec<PathBuf> {
     vec![
         cwd.join("skills"),
         cwd.join("agents"),
         cwd.join(".claude").join("skills"),
         cwd.join(".claude").join("agents"),
+        cwd.join(".opencode").join("skills"),
+        cwd.join(".opencode").join("agents"),
     ]
 }
 
-/// Directorios de skills/agentes globales del usuario (`~/.claude/...`).
+/// Directorios de skills/agentes globales del usuario: `~/.claude/...` (Claude Code) y
+/// `~/.config/opencode/...` (OpenCode, anclado a home en todas las plataformas).
 pub fn rutas_globales() -> Vec<PathBuf> {
     match home_dir() {
         Some(h) => vec![
             h.join(".claude").join("skills"),
             h.join(".claude").join("agents"),
+            h.join(".config").join("opencode").join("skills"),
+            h.join(".config").join("opencode").join("agents"),
         ],
         None => Vec::new(),
     }
